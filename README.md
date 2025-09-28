@@ -219,8 +219,7 @@ spring:
 
 ## 联系方式
 
-- 项目主页: [GitHub Repository]
-- 问题反馈: [Issues]
+- 问题反馈: Issues
 - 邮箱: river-911@qq.com
 
 ## 更新日志

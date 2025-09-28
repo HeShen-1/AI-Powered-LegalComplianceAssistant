@@ -219,8 +219,7 @@ This project is licensed under the Apache License. See the [LICENSE](LICENSE) fi
 
 ## Contact
 
-- Project Homepage: [GitHub Repository]
-- Issue Tracker: [Issues]
+- Issue Tracker: Issues
 - Email: river-911@qq.com
 
 ## Changelog
