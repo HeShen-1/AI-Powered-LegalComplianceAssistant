@@ -1,0 +1,42 @@
+spring:
+  # 测试环境数据库配置（使用 H2 内存数据库）
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  # JPA 配置
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  
+  # 禁用 Flyway（测试环境使用 JPA 自动建表）
+  flyway:
+    enabled: false
+  
+  # AI 配置（测试环境可能没有 Ollama）
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        enabled: false
+      embedding:
+        enabled: false
+
+# 日志配置
+logging:
+  level:
+    com.river.legalassistant: INFO
+    org.springframework.security: WARN
+    org.hibernate: WARN
+
+# 应用配置
+app:
+  upload:
+    max-file-size: 1MB
+    storage-path: ${java.io.tmpdir}/legal-assistant-test/uploads

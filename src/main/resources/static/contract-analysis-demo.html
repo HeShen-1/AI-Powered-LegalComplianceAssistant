@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>合同分析演示 - 法律合规智能审查助手</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-section, .analysis-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 5px;
+        }
+        .file-input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 2px dashed #ddd;
+            border-radius: 5px;
+            text-align: center;
+            cursor: pointer;
+        }
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2980b9;
+        }
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        .progress-container {
+            background: #ecf0f1;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            display: none;
+        }
+        .progress-bar {
+            background: #e74c3c;
+            height: 25px;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+        .log-container {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .result-container {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            display: none;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            color: white;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .status.success { background: #27ae60; }
+        .status.error { background: #e74c3c; }
+        .status.processing { background: #f39c12; }
+        .risk-high { color: #e74c3c; font-weight: bold; }
+        .risk-medium { color: #f39c12; font-weight: bold; }
+        .risk-low { color: #27ae60; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📋 合同分析演示</h1>
+        
+        <div class="upload-section">
+            <h3>🔺 第一步：上传合同文件</h3>
+            <input type="file" id="fileInput" accept=".pdf,.docx,.doc,.txt,.md" class="file-input">
+            <div>
+                <button onclick="uploadFile()">上传文件</button>
+                <span id="uploadStatus"></span>
+            </div>
+        </div>
+
+        <div class="analysis-section">
+            <h3>⚡ 第二步：开始分析</h3>
+            <div>
+                <button id="analyzeBtn" onclick="startAnalysis()" disabled>开始异步分析</button>
+                <button id="syncAnalyzeBtn" onclick="startSyncAnalysis()" disabled>开始同步分析</button>
+            </div>
+            
+            <div class="progress-container" id="progressContainer">
+                <h4>分析进度</h4>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill">0%</div>
+                </div>
+                <div id="progressMessage">准备中...</div>
+            </div>
+
+            <div id="logContainer" class="log-container" style="display: none;"></div>
+        </div>
+
+        <div class="result-container" id="resultContainer">
+            <h3>📊 分析结果</h3>
+            <div id="resultContent"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentReviewId = null;
+        let eventSource = null;
+
+        function log(message) {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            logContainer.textContent += `[${timestamp}] ${message}\n`;
+            logContainer.scrollTop = logContainer.scrollHeight;
+            logContainer.style.display = 'block';
+        }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('请选择一个文件');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                log('开始上传文件...');
+                const response = await fetch('/api/contracts/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentReviewId = result.reviewId;
+                    document.getElementById('uploadStatus').innerHTML = 
+                        `<span class="status success">上传成功 - ID: ${currentReviewId}</span>`;
+                    document.getElementById('analyzeBtn').disabled = false;
+                    document.getElementById('syncAnalyzeBtn').disabled = false;
+                    log(`文件上传成功，审查ID: ${currentReviewId}`);
+                } else {
+                    document.getElementById('uploadStatus').innerHTML = 
+                        `<span class="status error">上传失败: ${result.message}</span>`;
+                    log(`上传失败: ${result.message}`);
+                }
+            } catch (error) {
+                document.getElementById('uploadStatus').innerHTML = 
+                    `<span class="status error">上传错误</span>`;
+                log(`上传错误: ${error.message}`);
+            }
+        }
+
+        function startAnalysis() {
+            if (!currentReviewId) {
+                alert('请先上传文件');
+                return;
+            }
+
+            document.getElementById('progressContainer').style.display = 'block';
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('syncAnalyzeBtn').disabled = true;
+            
+            log('开始异步分析...');
+
+            // 创建SSE连接
+            eventSource = new EventSource(`/api/contracts/${currentReviewId}/analyze-async`);
+            
+            eventSource.onmessage = function(event) {
+                try {
+                    const progress = JSON.parse(event.data);
+                    updateProgress(progress);
+                } catch (e) {
+                    log(`解析进度数据失败: ${e.message}`);
+                }
+            };
+
+            eventSource.onerror = function(event) {
+                log('SSE连接错误');
+                eventSource.close();
+                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('syncAnalyzeBtn').disabled = false;
+            };
+
+            eventSource.onopen = function(event) {
+                log('SSE连接已建立');
+            };
+        }
+
+        function updateProgress(progress) {
+            const progressFill = document.getElementById('progressFill');
+            const progressMessage = document.getElementById('progressMessage');
+            
+            progressFill.style.width = `${progress.progress}%`;
+            progressFill.textContent = `${progress.progress}%`;
+            progressMessage.textContent = progress.message;
+            
+            log(`进度更新: ${progress.stage} - ${progress.progress}% - ${progress.message}`);
+            
+            if (progress.completed) {
+                eventSource.close();
+                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('syncAnalyzeBtn').disabled = false;
+                
+                if (progress.stage === 'COMPLETED') {
+                    log('分析完成！获取结果...');
+                    loadResult();
+                } else if (progress.stage === 'ERROR') {
+                    log(`分析失败: ${progress.error}`);
+                }
+            }
+        }
+
+        async function startSyncAnalysis() {
+            if (!currentReviewId) {
+                alert('请先上传文件');
+                return;
+            }
+
+            document.getElementById('analyzeBtn').disabled = true;
+            document.getElementById('syncAnalyzeBtn').disabled = true;
+            log('开始同步分析...');
+
+            try {
+                const response = await fetch(`/api/contracts/${currentReviewId}/analyze`, {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    log('同步分析完成！');
+                    loadResult();
+                } else {
+                    log(`同步分析失败: ${result.message}`);
+                }
+            } catch (error) {
+                log(`同步分析错误: ${error.message}`);
+            } finally {
+                document.getElementById('analyzeBtn').disabled = false;
+                document.getElementById('syncAnalyzeBtn').disabled = false;
+            }
+        }
+
+        async function loadResult() {
+            try {
+                const response = await fetch(`/api/contracts/${currentReviewId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResult(result.data);
+                } else {
+                    log('获取结果失败');
+                }
+            } catch (error) {
+                log(`获取结果错误: ${error.message}`);
+            }
+        }
+
+        function displayResult(data) {
+            const resultContainer = document.getElementById('resultContainer');
+            const resultContent = document.getElementById('resultContent');
+            
+            let riskLevelClass = 'risk-low';
+            if (data.riskLevel === 'HIGH') riskLevelClass = 'risk-high';
+            else if (data.riskLevel === 'MEDIUM') riskLevelClass = 'risk-medium';
+
+            let html = `
+                <div style="margin-bottom: 20px;">
+                    <h4>📄 ${data.originalFilename}</h4>
+                    <p><strong>状态:</strong> <span class="status success">${data.reviewStatus}</span></p>
+                    <p><strong>风险等级:</strong> <span class="${riskLevelClass}">${data.riskLevel}</span></p>
+                    <p><strong>风险数量:</strong> ${data.totalRisks || 0}</p>
+                    <p><strong>完成时间:</strong> ${data.completedAt ? new Date(data.completedAt).toLocaleString() : '未完成'}</p>
+                </div>
+            `;
+
+            if (data.summary) {
+                html += `
+                    <div style="margin-bottom: 20px;">
+                        <h4>📈 分析摘要</h4>
+                        <p><strong>合规评分:</strong> ${data.summary.complianceScore || 'N/A'}</p>
+                        <p><strong>完整性评分:</strong> ${data.summary.completenessScore || 'N/A'}</p>
+                        <p><strong>风险统计:</strong> 
+                            高风险 ${data.summary.highRiskCount || 0} 个，
+                            中风险 ${data.summary.mediumRiskCount || 0} 个，
+                            低风险 ${data.summary.lowRiskCount || 0} 个
+                        </p>
+                    </div>
+                `;
+
+                if (data.summary.coreRiskAlerts && data.summary.coreRiskAlerts.length > 0) {
+                    html += `
+                        <div style="margin-bottom: 20px;">
+                            <h4>⚠️ 核心风险提示</h4>
+                            <ul>
+                                ${data.summary.coreRiskAlerts.map(alert => `<li>${alert}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+            }
+
+            if (data.riskClauses && data.riskClauses.length > 0) {
+                html += `
+                    <div>
+                        <h4>🔍 风险条款详情</h4>
+                        ${data.riskClauses.map(clause => `
+                            <div style="border-left: 3px solid #3498db; padding-left: 15px; margin-bottom: 15px;">
+                                <h5>${clause.riskType}</h5>
+                                <p><strong>风险等级:</strong> <span class="risk-${clause.riskLevel.toLowerCase()}">${clause.riskLevel}</span></p>
+                                <p><strong>风险描述:</strong> ${clause.riskDescription || '待进一步分析'}</p>
+                                ${clause.suggestion ? `<p><strong>改进建议:</strong> ${clause.suggestion}</p>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            resultContent.innerHTML = html;
+            resultContainer.style.display = 'block';
+            log('结果显示完成');
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('合同分析演示页面已加载');
+            log('支持的文件格式: PDF, DOCX, DOC, TXT, MD');
+            log('请选择合同文件并开始分析...');
+        });
+    </script>
+</body>
+</html>

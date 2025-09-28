@@ -1,0 +1,203 @@
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+spring:
+  application:
+    name: legal-assistant
+
+  # 数据库配置
+  datasource:
+    url: jdbc:postgresql://localhost:5432/legal_assistant
+    username: postgres
+    password: 123456
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  # JPA 配置
+  jpa:
+    hibernate:
+      ddl-auto: validate  # 使用 Flyway 管理数据库结构，这里设为 validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  # Flyway 数据库迁移配置
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+
+  # Spring AI 配置 - 混合模型架构：本地Ollama + 云端OpenAI
+  ai:
+    # Ollama 配置 - 用于基础AI服务
+    ollama:
+      base-url: http://localhost:11434
+      chat:
+        options:
+          model: qwen2:1.5b  # 本地基础模型
+          temperature: 0.5
+          top-p: 0.9
+          num-predict: 2048
+      # 嵌入模型配置
+      embedding:
+        options:
+          model: nomic-embed-text  # 用于向量化的模型
+    
+    # OpenAI兼容配置 - 用于高级AI服务（DeepSeek API）
+    openai:
+      api-key: ${DEEPSEEK_API_KEY:sk-b1e087d2753d45aaabdfdaaa0a424172}  # 设置环境变量 DEEPSEEK_API_KEY
+      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}  # DeepSeek API端点
+      chat:
+        options:
+          model: deepseek-chat  # 高级模型，支持工具调用
+          temperature: 0.3  # 较低温度以获得更稳定的推理
+          max-tokens: 4096
+          frequency-penalty: 0.0
+          presence-penalty: 0.0
+    
+    # PGVector 向量存储配置 - 使用自动配置
+    vectorstore:
+      pgvector:
+        schema-name: public
+        table-name: vector_store
+        dimensions: 768  # nomic-embed-text 的实际维度
+        distance-type: cosine_distance
+        remove-existing-vector-store-table: false
+        index-type: hnsw
+
+  # 安全配置 - 使用数据库用户而非内存用户
+  # security:
+  #   user: 不再使用默认内存用户，改用数据库用户
+
+# 管理端点配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env
+  endpoint:
+    health:
+      show-details: always
+
+# Knife4j API 文档配置
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+  basic:
+    enable: false
+  production: false
+
+# 日志配置
+logging:
+  level:
+    com.river.legalassistant: DEBUG
+    org.springframework.ai: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 应用自定义配置
+app:
+  # 文件上传配置
+  upload:
+    max-file-size: 10MB
+    allowed-types: pdf,docx,txt,doc,md
+    storage-path: ${java.io.tmpdir}/legal-assistant/uploads
+  
+  # RAG 配置
+  rag:
+    chunk-size: 800          # 减小块大小，确保不超过嵌入模型token限制
+    chunk-overlap: 80        # 相应调整重叠大小
+    similarity-threshold: 0.7
+    max-results: 5
+  
+  # AI 配置 - 混合架构配置
+  ai:
+    # 服务模式配置
+    service-mode:
+      # 启用混合模式：本地模型处理基础任务，云端模型处理高级任务
+      hybrid-enabled: true
+      # 基础服务提供者：ollama 或 openai
+      basic-provider: ollama
+      # 高级服务提供者：openai 或 ollama
+      advanced-provider: openai
+      # 自动降级：当高级服务不可用时是否降级到基础服务
+      auto-fallback: true
+    
+    # 模型配置
+    models:
+      # 本地基础模型
+      basic:
+        chat: qwen2:1.5b
+        embedding: nomic-embed-text
+      # 云端高级模型 (DeepSeek)
+      advanced:
+        chat: deepseek-chat
+        embedding: nomic-embed-text  # DeepSeek暂不支持embedding，使用本地模型
+      # 降级模型
+      fallback: llama2:1.5b
+    
+    # 任务路由配置已移至Java代码中硬编码
+    # 避免配置复杂性和启动时的类型转换问题
+    
+    # 提示词模板路径
+    prompts:
+      contract-review: classpath:prompts/contract-review.txt
+      legal-qa: classpath:prompts/legal-qa.st
+      contract-risk-analysis: classpath:prompts/contract-risk-analysis.st
+      risk-analysis: classpath:prompts/risk-analysis.txt
+
+---
+# 开发环境配置
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:postgresql://localhost:5432/legal_assistant_dev
+  jpa:
+    show-sql: true
+logging:
+  level:
+    root: INFO
+    com.river.legalassistant: DEBUG
+
+---
+# 生产环境配置
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/legal_assistant_prod}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    show-sql: false
+  security:
+    user:
+      password: ${ADMIN_PASSWORD}
+
+app:
+  upload:
+    storage-path: ${UPLOAD_PATH:/opt/legal-assistant/uploads}
+
+logging:
+  level:
+    root: WARN
+    com.river.legalassistant: INFO
+  file:
+    name: /var/log/legal-assistant/application.log
