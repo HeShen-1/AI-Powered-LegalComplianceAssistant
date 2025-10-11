@@ -15,6 +15,16 @@ export interface LoginPayload {
   password: string
 }
 
+export interface LoginResponse {
+  success?: boolean
+  message?: string
+  token?: string
+  access_token?: string
+  accessToken?: string
+  user?: User
+  userInfo?: User
+}
+
 export interface RegisterPayload {
   username: string
   email: string
@@ -33,9 +43,9 @@ export interface ApiResponse<T = any> {
 export interface ContractReview {
   id: number
   userId: number
-  filename: string
+  originalFilename: string  // 修复：使用正确的字段名
   filePath: string
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+  reviewStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'  // 修复：使用正确的字段名
   riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH'
   createdAt: string
   completedAt?: string
@@ -50,13 +60,56 @@ export interface ContractUploadResponse {
   supportedAnalysis: boolean
 }
 
+// 统一聊天接口类型
+export interface UnifiedChatRequest {
+  message: string  // 与后端字段名保持一致
+  modelType: 'BASIC' | 'ADVANCED' | 'ADVANCED_RAG'  // 与后端字段名保持一致
+  conversationId?: string  // 与后端字段名保持一致
+  useKnowledgeBase?: boolean
+  modelName?: string
+  stream?: boolean
+}
+
+export interface UnifiedChatResponse {
+  question: string              // 用户的原始问题
+  answer: string                // AI生成的回答
+  conversationId: string        // 会话ID
+  modelType: string             // 使用的模型类型
+  modelName?: string            // 使用的具体模型名称
+  usedKnowledgeBase?: boolean   // 是否使用了知识库
+  hasKnowledgeMatch?: boolean   // 是否找到了相关知识
+  sourceCount?: number          // 知识来源数量
+  sources?: string[]            // 知识来源列表
+  memoryEnabled?: boolean       // 是否启用了对话记忆
+  responseType?: string         // 响应类型
+  timestamp: string             // 响应时间戳
+  duration?: number             // 处理耗时（毫秒）
+  metadata?: Record<string, any> // 额外的元数据
+}
+
 // AI聊天相关类型
 export interface ChatMessage {
   id: string
   content: string
-  type: 'user' | 'ai'
+  role: 'user' | 'ai'
   timestamp: string
   isStreaming?: boolean
+}
+
+// 聊天历史相关类型
+export interface ChatSessionDto {
+  id: string
+  title: string
+  updatedAt: string
+  messageCount?: number
+}
+
+export interface ChatMessageDto {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  metadata?: Record<string, any>
+  createdAt: string
 }
 
 export interface ChatRequest {
@@ -91,6 +144,7 @@ export interface KnowledgeDocument {
   filename: string
   category?: string
   description?: string
+  size: number
   uploadedAt: string
   chunksCount: number
 }

@@ -1,9 +1,12 @@
 package com.river.LegalAssistant.controller;
 
+import com.river.LegalAssistant.service.AgentService;
+import com.river.LegalAssistant.service.DeepSeekService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -32,13 +35,19 @@ public class HealthController {
     private final DataSource dataSource;
     private final ChatClient chatClient;
     private final EmbeddingModel embeddingModel;
+    private final AgentService agentService;
+    private final DeepSeekService deepSeekService;
     
     public HealthController(DataSource dataSource, 
                           ChatClient chatClient, 
-                          @Qualifier("ollamaEmbeddingModel") EmbeddingModel embeddingModel) {
+                          @Qualifier("ollamaEmbeddingModel") EmbeddingModel embeddingModel,
+                          AgentService agentService,
+                          DeepSeekService deepSeekService) {
         this.dataSource = dataSource;
         this.chatClient = chatClient;
         this.embeddingModel = embeddingModel;
+        this.agentService = agentService;
+        this.deepSeekService = deepSeekService;
     }
 
     /**
@@ -209,5 +218,71 @@ public class HealthController {
         ));
         
         return ResponseEntity.ok(info);
+    }
+
+    /**
+     * Agent服务健康检查
+     */
+    @GetMapping("/agent")
+    @Operation(summary = "Agent健康检查", description = "检查Agent服务及其依赖的底层模型是否正常运行。")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "检查成功", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"healthy\":true,\"status\":\"运行正常\",\"modelInfo\":\"qwen2:7b\",\"timestamp\":\"2023-10-27T10:45:00\"}"))),
+        @ApiResponse(responseCode = "500", description = "服务器内部错误", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"healthy\":false,\"status\":\"健康检查失败\",\"error\":\"[错误详情]\",\"timestamp\":\"2023-10-27T10:45:00\"}")))
+    })
+    public ResponseEntity<Map<String, Object>> checkAgentHealth() {
+        try {
+            boolean isHealthy = agentService.isServiceHealthy();
+            String modelInfo = agentService.getModelInfo();
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("healthy", isHealthy);
+            result.put("status", isHealthy ? "运行正常" : "服务异常");
+            result.put("modelInfo", modelInfo);
+            result.put("timestamp", LocalDateTime.now());
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.error("Agent健康检查失败", e);
+            return ResponseEntity.internalServerError()
+                    .body(Map.of(
+                        "healthy", false,
+                        "status", "健康检查失败",
+                        "error", e.getMessage(),
+                        "timestamp", LocalDateTime.now()
+                    ));
+        }
+    }
+
+    /**
+     * DeepSeek服务健康检查
+     */
+    @GetMapping("/deepseek")
+    @Operation(summary = "DeepSeek服务健康检查", description = "检查DeepSeek模型服务是否可用。")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "检查成功", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"healthy\":true,\"status\":\"DeepSeek服务运行正常\",\"timestamp\":\"2023-10-27T11:10:00\"}"))),
+        @ApiResponse(responseCode = "503", description = "服务不可用", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"healthy\":false,\"status\":\"DeepSeek服务不可用\",\"timestamp\":\"2023-10-27T11:10:00\"}")))
+    })
+    public ResponseEntity<Map<String, Object>> checkDeepSeekHealth() {
+        try {
+            boolean isHealthy = deepSeekService.isAvailable();
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("healthy", isHealthy);
+            result.put("status", isHealthy ? "DeepSeek服务运行正常" : "DeepSeek服务不可用");
+            result.put("timestamp", LocalDateTime.now());
+            
+            return isHealthy ? 
+                ResponseEntity.ok(result) : 
+                ResponseEntity.status(503).body(result);
+        } catch (Exception e) {
+            log.error("DeepSeek健康检查失败", e);
+            return ResponseEntity.status(503)
+                    .body(Map.of(
+                        "healthy", false,
+                        "status", "DeepSeek健康检查失败",
+                        "error", e.getMessage(),
+                        "timestamp", LocalDateTime.now()
+                    ));
+        }
     }
 }

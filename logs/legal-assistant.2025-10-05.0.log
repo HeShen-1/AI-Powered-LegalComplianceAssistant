@@ -1,0 +1,348 @@
+2025-10-05 17:45:37.035 [main] INFO  c.r.L.LegalAssistantApplication - Starting LegalAssistantApplication v0.0.1-SNAPSHOT using Java 21.0.5 with PID 4800 (F:\LegalAssistant\target\LegalAssistant-0.0.1-SNAPSHOT.jar started by river in F:\LegalAssistant)
+2025-10-05 17:45:37.110 [main] INFO  c.r.L.LegalAssistantApplication - No active profile set, falling back to 1 default profile: "default"
+2025-10-05 17:45:43.693 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-10-05 17:45:44.049 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@43c28101
+2025-10-05 17:45:44.184 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-10-05 17:45:44.301 [main] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:5432/legal_assistant (PostgreSQL 17.6)
+2025-10-05 17:45:44.319 [main] WARN  o.f.c.i.database.base.Database - Flyway upgrade recommended: PostgreSQL 17.6 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 16.
+2025-10-05 17:45:44.410 [main] INFO  o.f.core.internal.command.DbMigrate - Current version of schema "public": 10
+2025-10-05 17:45:44.419 [main] INFO  o.f.core.internal.command.DbMigrate - Schema "public" is up to date. No migration necessary.
+2025-10-05 17:45:45.214 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2025-10-05 17:45:46.298 [main] INFO  c.r.L.service.PromptTemplateService - 开始初始化提示词模板服务...
+2025-10-05 17:45:46.299 [main] INFO  c.r.L.service.PromptTemplateService - 提示词模板服务初始化完成，共加载 7 个模板
+2025-10-05 17:45:46.332 [main] INFO  c.r.L.config.OllamaConfig - === Ollama 配置初始化 ===
+2025-10-05 17:45:46.332 [main] INFO  c.r.L.config.OllamaConfig - 使用本地 Ollama 服务，不依赖任何云端 AI 服务
+2025-10-05 17:45:46.333 [main] INFO  c.r.L.config.OllamaConfig - 确保 Ollama 服务运行在 http://localhost:11434
+2025-10-05 17:45:46.333 [main] INFO  c.r.L.config.OllamaConfig - 推荐模型:
+2025-10-05 17:45:46.333 [main] INFO  c.r.L.config.OllamaConfig -   - 聊天模型: qwen2:1.5b, llama3.2:3b
+2025-10-05 17:45:46.334 [main] INFO  c.r.L.config.OllamaConfig -   - 嵌入模型: nomic-embed-text
+2025-10-05 17:45:46.334 [main] INFO  c.r.L.config.OllamaConfig - ========================
+2025-10-05 17:45:47.088 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j 嵌入模型: nomic-embed-text
+2025-10-05 17:45:47.379 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j PGVector 嵌入存储（独立表）
+2025-10-05 17:45:47.380 [main] INFO  c.r.L.config.LangChain4jConfig - 连接 PGVector 数据库: localhost:5432/legal_assistant, 表: langchain4j_embeddings, 维度: 768
+2025-10-05 17:45:48.661 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化主要聊天客户端，优先使用DeepSeek模型
+2025-10-05 17:45:48.692 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建Ollama聊天记忆存储库（内存存储）
+2025-10-05 17:45:48.694 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建Ollama聊天记忆，最大消息数: 15
+2025-10-05 17:45:48.699 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建DeepSeek聊天记忆存储库（内存存储）
+2025-10-05 17:45:48.700 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建DeepSeek聊天记忆，最大消息数: 30
+2025-10-05 17:45:48.701 [main] INFO  c.r.L.service.ChatMemoryService - 聊天记忆服务初始化完成
+2025-10-05 17:45:48.728 [main] INFO  c.r.LegalAssistant.config.AiConfig - 设置 Ollama Embedding 模型为主要嵌入模型
+2025-10-05 17:45:48.927 [main] INFO  o.s.a.v.pgvector.PgVectorStore - Using the vector table name: vector_store. Is empty: false
+2025-10-05 17:45:48.930 [main] INFO  o.s.a.v.pgvector.PgVectorStore - Initializing PGVectorStore schema for table: vector_store in schema: public
+2025-10-05 17:45:48.931 [main] INFO  o.s.a.v.pgvector.PgVectorStore - vectorTableValidationsEnabled false
+2025-10-05 17:45:48.931 [main] DEBUG o.s.a.v.pgvector.PgVectorStore - Skipping the schema initialization for the table: public.vector_store
+2025-10-05 17:45:49.228 [main] INFO  c.r.L.service.AgentService - 混合AI法律顾问代理服务启动
+2025-10-05 17:45:49.233 [main] INFO  c.r.L.service.AgentService - 正在初始化混合AI法律顾问代理服务...
+2025-10-05 17:45:49.233 [main] INFO  c.r.L.service.AgentService - 配置：混合模式=true, 基础提供者=ollama, 高级提供者=deepseek, 自动降级=true
+2025-10-05 17:45:49.234 [main] INFO  c.r.L.service.AgentService - 初始化基础AI服务：ollama (qwen2:1.5b)
+2025-10-05 17:45:49.275 [main] INFO  c.r.L.service.AgentService - 基础AI服务初始化成功：qwen2:1.5b
+2025-10-05 17:45:49.276 [main] INFO  c.r.L.service.AgentService - 初始化高级AI服务：deepseek (deepseek-chat)
+2025-10-05 17:45:49.327 [main] INFO  c.r.L.service.AgentService - 高级AI服务初始化成功：deepseek-chat
+2025-10-05 17:45:49.327 [main] INFO  c.r.L.service.AgentService - === 混合AI法律顾问服务初始化完成 ===
+2025-10-05 17:45:49.327 [main] INFO  c.r.L.service.AgentService - 基础服务状态：可用 (qwen2:1.5b)
+2025-10-05 17:45:49.328 [main] INFO  c.r.L.service.AgentService - 高级服务状态：可用 (deepseek-chat)
+2025-10-05 17:45:49.328 [main] INFO  c.r.L.service.AgentService - 自动降级：启用
+2025-10-05 17:45:49.328 [main] INFO  c.r.L.service.AgentService - 混合AI架构完全就绪，智能路由已激活。
+2025-10-05 17:45:49.329 [main] INFO  c.r.L.service.AgentService - ========================================
+2025-10-05 17:45:49.340 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j 聊天模型: qwen2:1.5b
+2025-10-05 17:45:49.357 [main] INFO  c.r.L.s.advanced.LegalQueryRouter - 初始化法律查询路由器...
+2025-10-05 17:45:49.358 [main] INFO  c.r.L.s.advanced.LegalQueryRouter - 法律查询路由器初始化完成，配置 6 个检索器
+2025-10-05 17:45:49.368 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 开始初始化 Advanced Legal RAG 服务...
+2025-10-05 17:45:49.369 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 构建 Advanced RAG 检索增强器...
+2025-10-05 17:45:49.373 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 检索增强器构建完成
+2025-10-05 17:45:49.373 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 构建 Advanced RAG AI 服务...
+2025-10-05 17:45:49.376 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - Advanced RAG AI 服务构建完成
+2025-10-05 17:45:49.376 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - Advanced Legal RAG 服务初始化成功
+2025-10-05 17:45:50.632 [main] INFO  c.r.L.service.EtlService - ETL服务初始化完成 - chunk大小: 0, 重叠: 0, 最小块: 0
+2025-10-05 17:45:50.720 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化基础聊天客户端，使用Ollama Chat模型
+2025-10-05 17:45:50.722 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化高级聊天客户端，使用DeepSeek Chat模型
+2025-10-05 17:45:50.727 [main] INFO  c.r.L.config.AsyncConfig - 合同分析异步任务执行器初始化完成: 核心线程数=2, 最大线程数=4, 队列容量=50
+2025-10-05 17:45:50.741 [main] INFO  c.r.L.config.AsyncConfig - 通用异步任务执行器初始化完成
+2025-10-05 17:45:50.780 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建默认聊天记忆，使用Ollama聊天记忆
+2025-10-05 17:45:50.991 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-10-05 17:45:51.047 [main] INFO  o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userService
+2025-10-05 17:45:51.898 [main] WARN  o.s.b.a.t.ThymeleafAutoConfiguration$DefaultTemplateResolverConfiguration - Cannot find template location: classpath:/templates/ (please add some templates, check your Thymeleaf configuration, or set spring.thymeleaf.check-template-location=false)
+2025-10-05 17:45:52.997 [main] INFO  c.r.L.LegalAssistantApplication - Started LegalAssistantApplication in 17.018 seconds (process running for 20.496)
+2025-10-05 17:45:53.007 [main] INFO  c.r.L.config.StartupIndexer - 检查是否需要索引法律文档...
+2025-10-05 17:45:53.016 [ForkJoinPool.commonPool-worker-1] INFO  c.r.L.config.StartupIndexer - 发现 6 个法律文档，检查是否需要索引...
+2025-10-05 17:45:53.158 [ForkJoinPool.commonPool-worker-1] INFO  c.r.L.config.StartupIndexer - 所有法律文档都已被索引，跳过自动索引
+2025-10-05 17:46:14.074 [http-nio-8080-exec-1] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=af717f6b, method=GET, uri=/api/v1/actuator/prometheus, status=200, duration=427ms
+2025-10-05 17:47:02.707 [http-nio-8080-exec-7] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=43313cbd, method=GET, uri=/api/v1/actuator/prometheus, status=200, duration=73ms
+2025-10-05 17:47:19.867 [http-nio-8080-exec-5] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=eb4d4060, method=GET, uri=/api/v1/actuator/health, status=200, duration=5745ms
+2025-10-05 17:47:49.699 [http-nio-8080-exec-6] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=434a8736, method=GET, uri=/api/v1/doc.html, status=200, duration=10ms
+2025-10-05 17:47:49.750 [http-nio-8080-exec-3] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=d810aff2, method=GET, uri=/api/v1/webjars/css/chunk-vendors.f24a310a.css, status=200, duration=7ms
+2025-10-05 17:47:49.753 [http-nio-8080-exec-8] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=00a5d9b2, method=GET, uri=/api/v1/webjars/css/app.1824bac3.css, status=200, duration=13ms
+2025-10-05 17:47:49.755 [http-nio-8080-exec-10] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=f5e8fa01, method=GET, uri=/api/v1/webjars/js/app.c31badf5.js, status=200, duration=10ms
+2025-10-05 17:47:49.777 [http-nio-8080-exec-4] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=eff5e348, method=GET, uri=/api/v1/webjars/js/chunk-vendors.d51cf6f8.js, status=200, duration=32ms
+2025-10-05 17:47:49.789 [http-nio-8080-exec-1] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=2962c832, method=GET, uri=/api/v1/webjars/css/chunk-41ae0dec.999bc9fd.css, status=200, duration=5ms
+2025-10-05 17:47:49.790 [http-nio-8080-exec-7] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=3a2608b0, method=GET, uri=/api/v1/webjars/css/chunk-cdc6d52e.9612b987.css, status=200, duration=6ms
+2025-10-05 17:47:49.790 [http-nio-8080-exec-9] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=75abf24e, method=GET, uri=/api/v1/webjars/js/chunk-069eb437.355c4fb0.js, status=200, duration=4ms
+2025-10-05 17:47:49.790 [http-nio-8080-exec-2] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=deb7c8f2, method=GET, uri=/api/v1/webjars/js/chunk-0d102d5a.b2bddffc.js, status=200, duration=5ms
+2025-10-05 17:47:49.793 [http-nio-8080-exec-5] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=1007644d, method=GET, uri=/api/v1/webjars/js/chunk-0fd67716.d57e2c41.js, status=200, duration=7ms
+2025-10-05 17:47:49.807 [http-nio-8080-exec-5] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=40768572, method=GET, uri=/api/v1/webjars/js/chunk-2d0af44e.392afcd6.js, status=200, duration=7ms
+2025-10-05 17:47:49.808 [http-nio-8080-exec-6] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=46003177, method=GET, uri=/api/v1/webjars/js/chunk-2d0bd799.eb48b7f1.js, status=200, duration=4ms
+2025-10-05 17:47:49.808 [http-nio-8080-exec-8] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=33d8d658, method=GET, uri=/api/v1/webjars/js/chunk-3b888a65.8737ce4f.js, status=200, duration=5ms
+2025-10-05 17:47:49.808 [http-nio-8080-exec-3] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=210e9bfe, method=GET, uri=/api/v1/webjars/js/chunk-2d0da532.591ad7fc.js, status=200, duration=6ms
+2025-10-05 17:47:49.809 [http-nio-8080-exec-10] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=12000c62, method=GET, uri=/api/v1/webjars/js/chunk-3ec4aaa8.a79d19f8.js, status=200, duration=7ms
+2025-10-05 17:47:49.817 [http-nio-8080-exec-7] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=fa6ac99a, method=GET, uri=/api/v1/webjars/js/chunk-260d712a.390177fe.js, status=200, duration=19ms
+2025-10-05 17:47:49.829 [http-nio-8080-exec-3] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=f67cfd23, method=GET, uri=/api/v1/webjars/js/chunk-41ae0dec.7cdc472b.js, status=200, duration=5ms
+2025-10-05 17:47:49.987 [http-nio-8080-exec-2] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=f05f5e19, method=GET, uri=/api/v1/webjars/js/chunk-adb9e944.2c7f24fe.js, status=200, duration=4ms
+2025-10-05 17:47:49.987 [http-nio-8080-exec-4] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=5b7aa5ee, method=GET, uri=/api/v1/webjars/js/chunk-589faee0.5bfd1708.js, status=200, duration=4ms
+2025-10-05 17:47:49.990 [http-nio-8080-exec-9] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=c5753a5b, method=GET, uri=/api/v1/webjars/js/chunk-cdc6d52e.5c46a8aa.js, status=200, duration=7ms
+2025-10-05 17:47:50.008 [http-nio-8080-exec-1] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=972d3665, method=GET, uri=/api/v1/webjars/js/chunk-735c675c.5b409314.js, status=200, duration=25ms
+2025-10-05 17:47:50.058 [http-nio-8080-exec-5] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=13e93029, method=GET, uri=/api/v1/v3/api-docs/swagger-config, status=200, duration=16ms
+2025-10-05 17:47:51.561 [http-nio-8080-exec-6] INFO  o.s.api.AbstractOpenApiResource - Init duration for springdoc-openapi is: 1486 ms
+2025-10-05 17:47:51.604 [http-nio-8080-exec-6] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=24881a2a, method=GET, uri=/api/v1/v3/api-docs, status=200, duration=1537ms
+2025-10-05 17:50:54.049 [http-nio-8080-exec-1] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=3c258ccf, method=GET, uri=/api/v1/doc.html, status=200, duration=4ms
+2025-10-05 17:50:54.101 [http-nio-8080-exec-5] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=5f0397e1, method=GET, uri=/api/v1/webjars/css/app.1824bac3.css, status=200, duration=9ms
+2025-10-05 17:50:54.102 [http-nio-8080-exec-6] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=c03bda10, method=GET, uri=/api/v1/webjars/css/chunk-vendors.f24a310a.css, status=200, duration=10ms
+2025-10-05 17:50:54.102 [http-nio-8080-exec-10] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=8569590f, method=GET, uri=/api/v1/webjars/js/app.c31badf5.js, status=200, duration=10ms
+2025-10-05 17:50:54.124 [http-nio-8080-exec-7] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=64e13766, method=GET, uri=/api/v1/webjars/js/chunk-vendors.d51cf6f8.js, status=200, duration=29ms
+2025-10-05 17:50:54.254 [http-nio-8080-exec-2] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=88452593, method=GET, uri=/api/v1/webjars/css/chunk-cdc6d52e.9612b987.css, status=200, duration=4ms
+2025-10-05 17:50:54.254 [http-nio-8080-exec-8] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=3bdb1d40, method=GET, uri=/api/v1/webjars/css/chunk-41ae0dec.999bc9fd.css, status=200, duration=4ms
+2025-10-05 17:50:54.262 [http-nio-8080-exec-4] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=ca1a309b, method=GET, uri=/api/v1/webjars/js/chunk-0d102d5a.b2bddffc.js, status=200, duration=4ms
+2025-10-05 17:50:54.262 [http-nio-8080-exec-3] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=61447dab, method=GET, uri=/api/v1/webjars/js/chunk-069eb437.355c4fb0.js, status=200, duration=5ms
+2025-10-05 17:50:54.264 [http-nio-8080-exec-9] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=ff5ed8da, method=GET, uri=/api/v1/webjars/js/chunk-0fd67716.d57e2c41.js, status=200, duration=6ms
+2025-10-05 17:50:54.281 [http-nio-8080-exec-5] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=b6847ad1, method=GET, uri=/api/v1/webjars/js/chunk-2d0af44e.392afcd6.js, status=200, duration=2ms
+2025-10-05 17:50:54.289 [http-nio-8080-exec-1] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=dff6e440, method=GET, uri=/api/v1/webjars/js/chunk-260d712a.390177fe.js, status=200, duration=16ms
+2025-10-05 17:50:54.294 [http-nio-8080-exec-10] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=71eddc61, method=GET, uri=/api/v1/webjars/js/chunk-2d0da532.591ad7fc.js, status=200, duration=3ms
+2025-10-05 17:50:54.293 [http-nio-8080-exec-7] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=83c09a8e, method=GET, uri=/api/v1/webjars/js/chunk-3b888a65.8737ce4f.js, status=200, duration=4ms
+2025-10-05 17:50:54.293 [http-nio-8080-exec-6] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=7fad6100, method=GET, uri=/api/v1/webjars/js/chunk-2d0bd799.eb48b7f1.js, status=200, duration=6ms
+2025-10-05 17:50:54.292 [http-nio-8080-exec-2] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=0314fbea, method=GET, uri=/api/v1/webjars/js/chunk-3ec4aaa8.a79d19f8.js, status=200, duration=5ms
+2025-10-05 17:50:54.320 [http-nio-8080-exec-4] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=0eee46c4, method=GET, uri=/api/v1/webjars/js/chunk-589faee0.5bfd1708.js, status=200, duration=6ms
+2025-10-05 17:50:54.320 [http-nio-8080-exec-8] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=8831d65b, method=GET, uri=/api/v1/webjars/js/chunk-41ae0dec.7cdc472b.js, status=200, duration=6ms
+2025-10-05 17:50:54.338 [http-nio-8080-exec-9] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=c72d539f, method=GET, uri=/api/v1/webjars/js/chunk-adb9e944.2c7f24fe.js, status=200, duration=20ms
+2025-10-05 17:50:54.342 [http-nio-8080-exec-3] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=430b0698, method=GET, uri=/api/v1/webjars/js/chunk-735c675c.5b409314.js, status=200, duration=28ms
+2025-10-05 17:50:54.343 [http-nio-8080-exec-5] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=cf8871ba, method=GET, uri=/api/v1/webjars/js/chunk-cdc6d52e.5c46a8aa.js, status=200, duration=25ms
+2025-10-05 17:50:54.444 [http-nio-8080-exec-1] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=effc8002, method=GET, uri=/api/v1/v3/api-docs/swagger-config, status=200, duration=3ms
+2025-10-05 17:50:54.471 [http-nio-8080-exec-10] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=bad538be, method=GET, uri=/api/v1/v3/api-docs, status=200, duration=9ms
+2025-10-05 17:50:56.362 [http-nio-8080-exec-2] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=4e44a0e2, method=GET, uri=/api/v1/webjars/js/chunk-41ae0dec.7cdc472b.js, status=200, duration=3ms
+2025-10-05 17:50:56.363 [http-nio-8080-exec-8] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=2d04f9e3, method=GET, uri=/api/v1/webjars/css/chunk-cdc6d52e.9612b987.css, status=200, duration=3ms
+2025-10-05 17:50:56.363 [http-nio-8080-exec-6] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=fd0700ff, method=GET, uri=/api/v1/webjars/js/chunk-069eb437.355c4fb0.js, status=200, duration=4ms
+2025-10-05 17:50:56.362 [http-nio-8080-exec-7] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=e374df69, method=GET, uri=/api/v1/webjars/css/chunk-41ae0dec.999bc9fd.css, status=200, duration=4ms
+2025-10-05 17:50:56.366 [http-nio-8080-exec-4] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=692ebd18, method=GET, uri=/api/v1/webjars/js/chunk-adb9e944.2c7f24fe.js, status=200, duration=6ms
+2025-10-05 17:50:56.369 [http-nio-8080-exec-9] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=055a5b3f, method=GET, uri=/api/v1/webjars/js/chunk-cdc6d52e.5c46a8aa.js, status=200, duration=9ms
+2025-10-05 17:50:56.388 [http-nio-8080-exec-1] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=ba317be2, method=GET, uri=/api/v1/webjars/js/chunk-2d0af44e.392afcd6.js, status=200, duration=4ms
+2025-10-05 17:50:56.388 [http-nio-8080-exec-3] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=715a907b, method=GET, uri=/api/v1/webjars/js/chunk-3b888a65.8737ce4f.js, status=200, duration=4ms
+2025-10-05 17:50:56.389 [http-nio-8080-exec-5] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=691784e3, method=GET, uri=/api/v1/webjars/js/chunk-3ec4aaa8.a79d19f8.js, status=200, duration=5ms
+2025-10-05 17:50:58.330 [http-nio-8080-exec-10] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=f8b75085, method=GET, uri=/api/v1/webjars/js/chunk-2d0bd799.eb48b7f1.js, status=200, duration=3ms
+2025-10-05 17:51:03.637 [http-nio-8080-exec-8] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=afa9c32e, method=GET, uri=/api/v1/webjars/js/chunk-0d102d5a.b2bddffc.js, status=200, duration=2ms
+2025-10-05 17:51:03.637 [http-nio-8080-exec-6] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=65c83d03, method=GET, uri=/api/v1/webjars/js/chunk-589faee0.5bfd1708.js, status=200, duration=2ms
+2025-10-05 17:51:03.639 [http-nio-8080-exec-2] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=f26e56ff, method=GET, uri=/api/v1/webjars/js/chunk-0fd67716.d57e2c41.js, status=200, duration=4ms
+2025-10-05 17:51:04.267 [http-nio-8080-exec-7] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=f1783b40, method=GET, uri=/api/v1/health, status=200, duration=4ms
+2025-10-05 17:51:04.302 [http-nio-8080-exec-4] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=f56daace, method=GET, uri=/api/v1/webjars/js/chunk-735c675c.5b409314.js, status=200, duration=8ms
+2025-10-05 17:51:37.295 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-10-05 17:51:37.302 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-10-05 17:52:53.209 [main] INFO  c.r.L.LegalAssistantApplication - Starting LegalAssistantApplication v0.0.1-SNAPSHOT using Java 21.0.5 with PID 36636 (F:\LegalAssistant\target\LegalAssistant-0.0.1-SNAPSHOT.jar started by river in F:\LegalAssistant)
+2025-10-05 17:52:53.250 [main] INFO  c.r.L.LegalAssistantApplication - No active profile set, falling back to 1 default profile: "default"
+2025-10-05 17:52:59.026 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-10-05 17:52:59.456 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@57bfaa41
+2025-10-05 17:52:59.554 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-10-05 17:52:59.653 [main] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:5432/legal_assistant (PostgreSQL 17.6)
+2025-10-05 17:52:59.670 [main] WARN  o.f.c.i.database.base.Database - Flyway upgrade recommended: PostgreSQL 17.6 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 16.
+2025-10-05 17:52:59.855 [main] INFO  o.f.core.internal.command.DbMigrate - Current version of schema "public": 10
+2025-10-05 17:52:59.860 [main] INFO  o.f.core.internal.command.DbMigrate - Schema "public" is up to date. No migration necessary.
+2025-10-05 17:53:00.464 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2025-10-05 17:53:01.474 [main] INFO  c.r.L.service.PromptTemplateService - 开始初始化提示词模板服务...
+2025-10-05 17:53:01.475 [main] INFO  c.r.L.service.PromptTemplateService - 提示词模板服务初始化完成，共加载 7 个模板
+2025-10-05 17:53:01.506 [main] INFO  c.r.L.config.OllamaConfig - === Ollama 配置初始化 ===
+2025-10-05 17:53:01.508 [main] INFO  c.r.L.config.OllamaConfig - 使用本地 Ollama 服务，不依赖任何云端 AI 服务
+2025-10-05 17:53:01.508 [main] INFO  c.r.L.config.OllamaConfig - 确保 Ollama 服务运行在 http://localhost:11434
+2025-10-05 17:53:01.509 [main] INFO  c.r.L.config.OllamaConfig - 推荐模型:
+2025-10-05 17:53:01.509 [main] INFO  c.r.L.config.OllamaConfig -   - 聊天模型: qwen2:1.5b, llama3.2:3b
+2025-10-05 17:53:01.510 [main] INFO  c.r.L.config.OllamaConfig -   - 嵌入模型: nomic-embed-text
+2025-10-05 17:53:01.510 [main] INFO  c.r.L.config.OllamaConfig - ========================
+2025-10-05 17:53:02.363 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j 嵌入模型: nomic-embed-text
+2025-10-05 17:53:02.603 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j PGVector 嵌入存储（独立表）
+2025-10-05 17:53:02.604 [main] INFO  c.r.L.config.LangChain4jConfig - 连接 PGVector 数据库: localhost:5432/legal_assistant, 表: langchain4j_embeddings, 维度: 768
+2025-10-05 17:53:03.835 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化主要聊天客户端，优先使用DeepSeek模型
+2025-10-05 17:53:03.869 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建Ollama聊天记忆存储库（内存存储）
+2025-10-05 17:53:03.872 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建Ollama聊天记忆，最大消息数: 15
+2025-10-05 17:53:03.877 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建DeepSeek聊天记忆存储库（内存存储）
+2025-10-05 17:53:03.878 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建DeepSeek聊天记忆，最大消息数: 30
+2025-10-05 17:53:03.880 [main] INFO  c.r.L.service.ChatMemoryService - 聊天记忆服务初始化完成
+2025-10-05 17:53:03.902 [main] INFO  c.r.LegalAssistant.config.AiConfig - 设置 Ollama Embedding 模型为主要嵌入模型
+2025-10-05 17:53:04.085 [main] INFO  o.s.a.v.pgvector.PgVectorStore - Using the vector table name: vector_store. Is empty: false
+2025-10-05 17:53:04.088 [main] INFO  o.s.a.v.pgvector.PgVectorStore - Initializing PGVectorStore schema for table: vector_store in schema: public
+2025-10-05 17:53:04.089 [main] INFO  o.s.a.v.pgvector.PgVectorStore - vectorTableValidationsEnabled false
+2025-10-05 17:53:04.090 [main] DEBUG o.s.a.v.pgvector.PgVectorStore - Skipping the schema initialization for the table: public.vector_store
+2025-10-05 17:53:04.420 [main] INFO  c.r.L.service.AgentService - 混合AI法律顾问代理服务启动
+2025-10-05 17:53:04.423 [main] INFO  c.r.L.service.AgentService - 正在初始化混合AI法律顾问代理服务...
+2025-10-05 17:53:04.423 [main] INFO  c.r.L.service.AgentService - 配置：混合模式=true, 基础提供者=ollama, 高级提供者=deepseek, 自动降级=true
+2025-10-05 17:53:04.424 [main] INFO  c.r.L.service.AgentService - 初始化基础AI服务：ollama (qwen2:1.5b)
+2025-10-05 17:53:04.450 [main] INFO  c.r.L.service.AgentService - 基础AI服务初始化成功：qwen2:1.5b
+2025-10-05 17:53:04.450 [main] INFO  c.r.L.service.AgentService - 初始化高级AI服务：deepseek (deepseek-chat)
+2025-10-05 17:53:04.531 [main] INFO  c.r.L.service.AgentService - 高级AI服务初始化成功：deepseek-chat
+2025-10-05 17:53:04.531 [main] INFO  c.r.L.service.AgentService - === 混合AI法律顾问服务初始化完成 ===
+2025-10-05 17:53:04.532 [main] INFO  c.r.L.service.AgentService - 基础服务状态：可用 (qwen2:1.5b)
+2025-10-05 17:53:04.532 [main] INFO  c.r.L.service.AgentService - 高级服务状态：可用 (deepseek-chat)
+2025-10-05 17:53:04.533 [main] INFO  c.r.L.service.AgentService - 自动降级：启用
+2025-10-05 17:53:04.533 [main] INFO  c.r.L.service.AgentService - 混合AI架构完全就绪，智能路由已激活。
+2025-10-05 17:53:04.533 [main] INFO  c.r.L.service.AgentService - ========================================
+2025-10-05 17:53:04.545 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j 聊天模型: qwen2:1.5b
+2025-10-05 17:53:04.564 [main] INFO  c.r.L.s.advanced.LegalQueryRouter - 初始化法律查询路由器...
+2025-10-05 17:53:04.565 [main] INFO  c.r.L.s.advanced.LegalQueryRouter - 法律查询路由器初始化完成，配置 6 个检索器
+2025-10-05 17:53:04.575 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 开始初始化 Advanced Legal RAG 服务...
+2025-10-05 17:53:04.575 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 构建 Advanced RAG 检索增强器...
+2025-10-05 17:53:04.579 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 检索增强器构建完成
+2025-10-05 17:53:04.579 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 构建 Advanced RAG AI 服务...
+2025-10-05 17:53:04.582 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - Advanced RAG AI 服务构建完成
+2025-10-05 17:53:04.583 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - Advanced Legal RAG 服务初始化成功
+2025-10-05 17:53:05.266 [main] INFO  c.r.L.service.EtlService - ETL服务初始化完成 - chunk大小: 0, 重叠: 0, 最小块: 0
+2025-10-05 17:53:05.348 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化基础聊天客户端，使用Ollama Chat模型
+2025-10-05 17:53:05.352 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化高级聊天客户端，使用DeepSeek Chat模型
+2025-10-05 17:53:05.354 [main] INFO  c.r.L.config.AsyncConfig - 合同分析异步任务执行器初始化完成: 核心线程数=2, 最大线程数=4, 队列容量=50
+2025-10-05 17:53:05.367 [main] INFO  c.r.L.config.AsyncConfig - 通用异步任务执行器初始化完成
+2025-10-05 17:53:05.405 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建默认聊天记忆，使用Ollama聊天记忆
+2025-10-05 17:53:05.608 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-10-05 17:53:05.686 [main] INFO  o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userService
+2025-10-05 17:53:06.547 [main] WARN  o.s.b.a.t.ThymeleafAutoConfiguration$DefaultTemplateResolverConfiguration - Cannot find template location: classpath:/templates/ (please add some templates, check your Thymeleaf configuration, or set spring.thymeleaf.check-template-location=false)
+2025-10-05 17:53:07.625 [main] INFO  c.r.L.LegalAssistantApplication - Started LegalAssistantApplication in 15.552 seconds (process running for 18.966)
+2025-10-05 17:53:07.640 [main] INFO  c.r.L.config.StartupIndexer - 检查是否需要索引法律文档...
+2025-10-05 17:53:07.650 [ForkJoinPool.commonPool-worker-1] INFO  c.r.L.config.StartupIndexer - 发现 6 个法律文档，检查是否需要索引...
+2025-10-05 17:53:07.795 [ForkJoinPool.commonPool-worker-1] INFO  c.r.L.config.StartupIndexer - 所有法律文档都已被索引，跳过自动索引
+2025-10-05 17:56:14.055 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-10-05 17:56:14.063 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-10-05 17:56:56.227 [main] INFO  c.r.L.LegalAssistantApplication - Starting LegalAssistantApplication v0.0.1-SNAPSHOT using Java 21.0.5 with PID 17544 (F:\LegalAssistant\target\LegalAssistant-0.0.1-SNAPSHOT.jar started by river in F:\LegalAssistant)
+2025-10-05 17:56:56.267 [main] INFO  c.r.L.LegalAssistantApplication - No active profile set, falling back to 1 default profile: "default"
+2025-10-05 17:57:02.594 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-10-05 17:57:02.980 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@149b14f6
+2025-10-05 17:57:03.073 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-10-05 17:57:03.159 [main] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:5432/legal_assistant (PostgreSQL 17.6)
+2025-10-05 17:57:03.172 [main] WARN  o.f.c.i.database.base.Database - Flyway upgrade recommended: PostgreSQL 17.6 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 16.
+2025-10-05 17:57:03.379 [main] INFO  o.f.core.internal.command.DbMigrate - Current version of schema "public": 10
+2025-10-05 17:57:03.384 [main] INFO  o.f.core.internal.command.DbMigrate - Schema "public" is up to date. No migration necessary.
+2025-10-05 17:57:04.050 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2025-10-05 17:57:05.073 [main] INFO  c.r.L.service.PromptTemplateService - 开始初始化提示词模板服务...
+2025-10-05 17:57:05.074 [main] INFO  c.r.L.service.PromptTemplateService - 提示词模板服务初始化完成，共加载 7 个模板
+2025-10-05 17:57:05.110 [main] INFO  c.r.L.config.OllamaConfig - === Ollama 配置初始化 ===
+2025-10-05 17:57:05.110 [main] INFO  c.r.L.config.OllamaConfig - 使用本地 Ollama 服务，不依赖任何云端 AI 服务
+2025-10-05 17:57:05.112 [main] INFO  c.r.L.config.OllamaConfig - 确保 Ollama 服务运行在 http://localhost:11434
+2025-10-05 17:57:05.112 [main] INFO  c.r.L.config.OllamaConfig - 推荐模型:
+2025-10-05 17:57:05.112 [main] INFO  c.r.L.config.OllamaConfig -   - 聊天模型: qwen2:1.5b, llama3.2:3b
+2025-10-05 17:57:05.113 [main] INFO  c.r.L.config.OllamaConfig -   - 嵌入模型: nomic-embed-text
+2025-10-05 17:57:05.113 [main] INFO  c.r.L.config.OllamaConfig - ========================
+2025-10-05 17:57:05.845 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j 嵌入模型: nomic-embed-text
+2025-10-05 17:57:06.068 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j PGVector 嵌入存储（独立表）
+2025-10-05 17:57:06.069 [main] INFO  c.r.L.config.LangChain4jConfig - 连接 PGVector 数据库: localhost:5432/legal_assistant, 表: langchain4j_embeddings, 维度: 768
+2025-10-05 17:57:07.328 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化主要聊天客户端，优先使用DeepSeek模型
+2025-10-05 17:57:07.370 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建Ollama聊天记忆存储库（内存存储）
+2025-10-05 17:57:07.373 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建Ollama聊天记忆，最大消息数: 15
+2025-10-05 17:57:07.379 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建DeepSeek聊天记忆存储库（内存存储）
+2025-10-05 17:57:07.380 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建DeepSeek聊天记忆，最大消息数: 30
+2025-10-05 17:57:07.381 [main] INFO  c.r.L.service.ChatMemoryService - 聊天记忆服务初始化完成
+2025-10-05 17:57:07.415 [main] INFO  c.r.LegalAssistant.config.AiConfig - 设置 Ollama Embedding 模型为主要嵌入模型
+2025-10-05 17:57:07.606 [main] INFO  o.s.a.v.pgvector.PgVectorStore - Using the vector table name: vector_store. Is empty: false
+2025-10-05 17:57:07.610 [main] INFO  o.s.a.v.pgvector.PgVectorStore - Initializing PGVectorStore schema for table: vector_store in schema: public
+2025-10-05 17:57:07.610 [main] INFO  o.s.a.v.pgvector.PgVectorStore - vectorTableValidationsEnabled false
+2025-10-05 17:57:07.611 [main] DEBUG o.s.a.v.pgvector.PgVectorStore - Skipping the schema initialization for the table: public.vector_store
+2025-10-05 17:57:07.933 [main] INFO  c.r.L.service.AgentService - 混合AI法律顾问代理服务启动
+2025-10-05 17:57:07.935 [main] INFO  c.r.L.service.AgentService - 正在初始化混合AI法律顾问代理服务...
+2025-10-05 17:57:07.935 [main] INFO  c.r.L.service.AgentService - 配置：混合模式=true, 基础提供者=ollama, 高级提供者=deepseek, 自动降级=true
+2025-10-05 17:57:07.936 [main] INFO  c.r.L.service.AgentService - 初始化基础AI服务：ollama (qwen2:1.5b)
+2025-10-05 17:57:07.954 [main] INFO  c.r.L.service.AgentService - 基础AI服务初始化成功：qwen2:1.5b
+2025-10-05 17:57:07.954 [main] INFO  c.r.L.service.AgentService - 初始化高级AI服务：deepseek (deepseek-chat)
+2025-10-05 17:57:08.002 [main] INFO  c.r.L.service.AgentService - 高级AI服务初始化成功：deepseek-chat
+2025-10-05 17:57:08.002 [main] INFO  c.r.L.service.AgentService - === 混合AI法律顾问服务初始化完成 ===
+2025-10-05 17:57:08.003 [main] INFO  c.r.L.service.AgentService - 基础服务状态：可用 (qwen2:1.5b)
+2025-10-05 17:57:08.003 [main] INFO  c.r.L.service.AgentService - 高级服务状态：可用 (deepseek-chat)
+2025-10-05 17:57:08.003 [main] INFO  c.r.L.service.AgentService - 自动降级：启用
+2025-10-05 17:57:08.004 [main] INFO  c.r.L.service.AgentService - 混合AI架构完全就绪，智能路由已激活。
+2025-10-05 17:57:08.004 [main] INFO  c.r.L.service.AgentService - ========================================
+2025-10-05 17:57:08.017 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j 聊天模型: qwen2:1.5b
+2025-10-05 17:57:08.036 [main] INFO  c.r.L.s.advanced.LegalQueryRouter - 初始化法律查询路由器...
+2025-10-05 17:57:08.036 [main] INFO  c.r.L.s.advanced.LegalQueryRouter - 法律查询路由器初始化完成，配置 6 个检索器
+2025-10-05 17:57:08.046 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 开始初始化 Advanced Legal RAG 服务...
+2025-10-05 17:57:08.047 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 构建 Advanced RAG 检索增强器...
+2025-10-05 17:57:08.051 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 检索增强器构建完成
+2025-10-05 17:57:08.051 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 构建 Advanced RAG AI 服务...
+2025-10-05 17:57:08.054 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - Advanced RAG AI 服务构建完成
+2025-10-05 17:57:08.055 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - Advanced Legal RAG 服务初始化成功
+2025-10-05 17:57:08.857 [main] INFO  c.r.L.service.EtlService - ETL服务初始化完成 - chunk大小: 0, 重叠: 0, 最小块: 0
+2025-10-05 17:57:08.937 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化基础聊天客户端，使用Ollama Chat模型
+2025-10-05 17:57:08.940 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化高级聊天客户端，使用DeepSeek Chat模型
+2025-10-05 17:57:08.944 [main] INFO  c.r.L.config.AsyncConfig - 合同分析异步任务执行器初始化完成: 核心线程数=2, 最大线程数=4, 队列容量=50
+2025-10-05 17:57:08.958 [main] INFO  c.r.L.config.AsyncConfig - 通用异步任务执行器初始化完成
+2025-10-05 17:57:09.020 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建默认聊天记忆，使用Ollama聊天记忆
+2025-10-05 17:57:09.224 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-10-05 17:57:09.273 [main] INFO  o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userService
+2025-10-05 17:57:10.222 [main] WARN  o.s.b.a.t.ThymeleafAutoConfiguration$DefaultTemplateResolverConfiguration - Cannot find template location: classpath:/templates/ (please add some templates, check your Thymeleaf configuration, or set spring.thymeleaf.check-template-location=false)
+2025-10-05 17:57:11.317 [main] INFO  c.r.L.LegalAssistantApplication - Started LegalAssistantApplication in 16.264 seconds (process running for 19.918)
+2025-10-05 17:57:11.327 [main] INFO  c.r.L.config.StartupIndexer - 检查是否需要索引法律文档...
+2025-10-05 17:57:11.335 [ForkJoinPool.commonPool-worker-1] INFO  c.r.L.config.StartupIndexer - 发现 6 个法律文档，检查是否需要索引...
+2025-10-05 17:57:11.475 [ForkJoinPool.commonPool-worker-1] INFO  c.r.L.config.StartupIndexer - 所有法律文档都已被索引，跳过自动索引
+2025-10-05 18:02:32.279 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-10-05 18:02:32.287 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.
+2025-10-05 18:02:57.648 [main] INFO  c.r.L.LegalAssistantApplication - Starting LegalAssistantApplication v0.0.1-SNAPSHOT using Java 21.0.5 with PID 7656 (F:\LegalAssistant\target\LegalAssistant-0.0.1-SNAPSHOT.jar started by river in F:\LegalAssistant)
+2025-10-05 18:02:57.681 [main] INFO  c.r.L.LegalAssistantApplication - No active profile set, falling back to 1 default profile: "default"
+2025-10-05 18:03:04.027 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2025-10-05 18:03:04.382 [main] INFO  com.zaxxer.hikari.pool.HikariPool - HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@28c33ed7
+2025-10-05 18:03:04.470 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2025-10-05 18:03:04.580 [main] INFO  org.flywaydb.core.FlywayExecutor - Database: jdbc:postgresql://localhost:5432/legal_assistant (PostgreSQL 17.6)
+2025-10-05 18:03:04.599 [main] WARN  o.f.c.i.database.base.Database - Flyway upgrade recommended: PostgreSQL 17.6 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 16.
+2025-10-05 18:03:04.763 [main] INFO  o.f.core.internal.command.DbMigrate - Current version of schema "public": 10
+2025-10-05 18:03:04.768 [main] INFO  o.f.core.internal.command.DbMigrate - Schema "public" is up to date. No migration necessary.
+2025-10-05 18:03:05.736 [main] WARN  org.hibernate.orm.deprecation - HHH90000025: PostgreSQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2025-10-05 18:03:06.784 [main] INFO  c.r.L.service.PromptTemplateService - 开始初始化提示词模板服务...
+2025-10-05 18:03:06.785 [main] INFO  c.r.L.service.PromptTemplateService - 提示词模板服务初始化完成，共加载 7 个模板
+2025-10-05 18:03:06.820 [main] INFO  c.r.L.config.OllamaConfig - === Ollama 配置初始化 ===
+2025-10-05 18:03:06.820 [main] INFO  c.r.L.config.OllamaConfig - 使用本地 Ollama 服务，不依赖任何云端 AI 服务
+2025-10-05 18:03:06.820 [main] INFO  c.r.L.config.OllamaConfig - 确保 Ollama 服务运行在 http://localhost:11434
+2025-10-05 18:03:06.822 [main] INFO  c.r.L.config.OllamaConfig - 推荐模型:
+2025-10-05 18:03:06.822 [main] INFO  c.r.L.config.OllamaConfig -   - 聊天模型: qwen2:1.5b, llama3.2:3b
+2025-10-05 18:03:06.822 [main] INFO  c.r.L.config.OllamaConfig -   - 嵌入模型: nomic-embed-text
+2025-10-05 18:03:06.823 [main] INFO  c.r.L.config.OllamaConfig - ========================
+2025-10-05 18:03:07.725 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j 嵌入模型: nomic-embed-text
+2025-10-05 18:03:08.006 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j PGVector 嵌入存储（独立表）
+2025-10-05 18:03:08.007 [main] INFO  c.r.L.config.LangChain4jConfig - 连接 PGVector 数据库: localhost:5432/legal_assistant, 表: langchain4j_embeddings, 维度: 768
+2025-10-05 18:03:09.341 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化主要聊天客户端，优先使用DeepSeek模型
+2025-10-05 18:03:09.376 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建Ollama聊天记忆存储库（内存存储）
+2025-10-05 18:03:09.378 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建Ollama聊天记忆，最大消息数: 15
+2025-10-05 18:03:09.383 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建DeepSeek聊天记忆存储库（内存存储）
+2025-10-05 18:03:09.384 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建DeepSeek聊天记忆，最大消息数: 30
+2025-10-05 18:03:09.385 [main] INFO  c.r.L.service.ChatMemoryService - 聊天记忆服务初始化完成
+2025-10-05 18:03:09.408 [main] INFO  c.r.LegalAssistant.config.AiConfig - 设置 Ollama Embedding 模型为主要嵌入模型
+2025-10-05 18:03:09.607 [main] INFO  o.s.a.v.pgvector.PgVectorStore - Using the vector table name: vector_store. Is empty: false
+2025-10-05 18:03:09.611 [main] INFO  o.s.a.v.pgvector.PgVectorStore - Initializing PGVectorStore schema for table: vector_store in schema: public
+2025-10-05 18:03:09.612 [main] INFO  o.s.a.v.pgvector.PgVectorStore - vectorTableValidationsEnabled false
+2025-10-05 18:03:09.612 [main] DEBUG o.s.a.v.pgvector.PgVectorStore - Skipping the schema initialization for the table: public.vector_store
+2025-10-05 18:03:09.896 [main] INFO  c.r.L.service.AgentService - 混合AI法律顾问代理服务启动
+2025-10-05 18:03:09.899 [main] INFO  c.r.L.service.AgentService - 正在初始化混合AI法律顾问代理服务...
+2025-10-05 18:03:09.899 [main] INFO  c.r.L.service.AgentService - 配置：混合模式=true, 基础提供者=ollama, 高级提供者=deepseek, 自动降级=true
+2025-10-05 18:03:09.900 [main] INFO  c.r.L.service.AgentService - 初始化基础AI服务：ollama (qwen2:1.5b)
+2025-10-05 18:03:09.913 [main] INFO  c.r.L.service.AgentService - 基础AI服务初始化成功：qwen2:1.5b
+2025-10-05 18:03:09.914 [main] INFO  c.r.L.service.AgentService - 初始化高级AI服务：deepseek (deepseek-chat)
+2025-10-05 18:03:09.956 [main] INFO  c.r.L.service.AgentService - 高级AI服务初始化成功：deepseek-chat
+2025-10-05 18:03:09.957 [main] INFO  c.r.L.service.AgentService - === 混合AI法律顾问服务初始化完成 ===
+2025-10-05 18:03:09.957 [main] INFO  c.r.L.service.AgentService - 基础服务状态：可用 (qwen2:1.5b)
+2025-10-05 18:03:09.958 [main] INFO  c.r.L.service.AgentService - 高级服务状态：可用 (deepseek-chat)
+2025-10-05 18:03:09.958 [main] INFO  c.r.L.service.AgentService - 自动降级：启用
+2025-10-05 18:03:09.958 [main] INFO  c.r.L.service.AgentService - 混合AI架构完全就绪，智能路由已激活。
+2025-10-05 18:03:09.959 [main] INFO  c.r.L.service.AgentService - ========================================
+2025-10-05 18:03:09.970 [main] INFO  c.r.L.config.LangChain4jConfig - 初始化 LangChain4j 聊天模型: qwen2:1.5b
+2025-10-05 18:03:09.990 [main] INFO  c.r.L.s.advanced.LegalQueryRouter - 初始化法律查询路由器...
+2025-10-05 18:03:09.990 [main] INFO  c.r.L.s.advanced.LegalQueryRouter - 法律查询路由器初始化完成，配置 6 个检索器
+2025-10-05 18:03:10.004 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 开始初始化 Advanced Legal RAG 服务...
+2025-10-05 18:03:10.004 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 构建 Advanced RAG 检索增强器...
+2025-10-05 18:03:10.009 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 检索增强器构建完成
+2025-10-05 18:03:10.009 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - 构建 Advanced RAG AI 服务...
+2025-10-05 18:03:10.014 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - Advanced RAG AI 服务构建完成
+2025-10-05 18:03:10.014 [main] INFO  c.r.L.s.a.AdvancedLegalRagService - Advanced Legal RAG 服务初始化成功
+2025-10-05 18:03:10.765 [main] INFO  c.r.L.service.EtlService - ETL服务初始化完成 - chunk大小: 0, 重叠: 0, 最小块: 0
+2025-10-05 18:03:10.848 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化基础聊天客户端，使用Ollama Chat模型
+2025-10-05 18:03:10.851 [main] INFO  c.r.LegalAssistant.config.AiConfig - 初始化高级聊天客户端，使用DeepSeek Chat模型
+2025-10-05 18:03:10.853 [main] INFO  c.r.L.config.AsyncConfig - 合同分析异步任务执行器初始化完成: 核心线程数=2, 最大线程数=4, 队列容量=50
+2025-10-05 18:03:10.866 [main] INFO  c.r.L.config.AsyncConfig - 通用异步任务执行器初始化完成
+2025-10-05 18:03:10.905 [main] INFO  c.r.L.config.ChatMemoryConfig - 创建默认聊天记忆，使用Ollama聊天记忆
+2025-10-05 18:03:11.086 [main] WARN  o.s.b.a.o.j.JpaBaseConfiguration$JpaWebConfiguration - spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2025-10-05 18:03:11.130 [main] INFO  o.s.s.c.a.a.c.InitializeUserDetailsBeanManagerConfigurer$InitializeUserDetailsManagerConfigurer - Global AuthenticationManager configured with UserDetailsService bean with name userService
+2025-10-05 18:03:11.965 [main] WARN  o.s.b.a.t.ThymeleafAutoConfiguration$DefaultTemplateResolverConfiguration - Cannot find template location: classpath:/templates/ (please add some templates, check your Thymeleaf configuration, or set spring.thymeleaf.check-template-location=false)
+2025-10-05 18:03:13.054 [main] INFO  c.r.L.LegalAssistantApplication - Started LegalAssistantApplication in 16.458 seconds (process running for 19.83)
+2025-10-05 18:03:13.065 [main] INFO  c.r.L.config.StartupIndexer - 检查是否需要索引法律文档...
+2025-10-05 18:03:13.072 [ForkJoinPool.commonPool-worker-1] INFO  c.r.L.config.StartupIndexer - 发现 6 个法律文档，检查是否需要索引...
+2025-10-05 18:03:13.207 [ForkJoinPool.commonPool-worker-1] INFO  c.r.L.config.StartupIndexer - 所有法律文档都已被索引，跳过自动索引
+2025-10-05 18:03:39.062 [http-nio-8080-exec-1] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=bf162dca, method=GET, uri=/api/v1/actuator/prometheus, status=200, duration=403ms
+2025-10-05 18:03:43.822 [http-nio-8080-exec-4] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=8f2bb7c4, method=GET, uri=/api/v1/actuator/metrics, status=200, duration=5ms
+2025-10-05 18:03:44.107 [http-nio-8080-exec-7] INFO  c.r.L.filter.RequestTrackingFilter - [REQUEST_END] traceId=88044e85, method=GET, uri=/api/v1/actuator/health, status=200, duration=2896ms
+2025-10-05 18:07:00.255 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown initiated...
+2025-10-05 18:07:00.261 [SpringApplicationShutdownHook] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Shutdown completed.

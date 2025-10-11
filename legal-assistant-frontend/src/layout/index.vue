@@ -1,32 +1,42 @@
 <template>
   <el-container class="layout-container">
     <!-- 侧边栏 -->
-    <el-aside :width="isCollapse ? '64px' : '220px'" class="sidebar">
-      <div class="sidebar-header">
-        <div v-if="!isCollapse" class="logo">
-          <el-icon class="logo-icon"><Document /></el-icon>
-          <span class="logo-text">法律助手</span>
+    <el-aside :width="isCollapse ? '64px' : '200px'" class="sidebar">
+      <div class="logo-container">
+        <div class="logo">
+          <el-icon size="24" color="#409EFF">
+            <Document />
+          </el-icon>
+          <span v-show="!isCollapse" class="logo-text">法律助手</span>
         </div>
-        <el-icon v-else class="logo-icon-collapsed"><Document /></el-icon>
       </div>
       
       <el-menu
-        :default-active="activeMenuIndex"
+        :default-active="activeMenu"
         :collapse="isCollapse"
         :unique-opened="true"
         class="sidebar-menu"
-        background-color="#001529"
-        text-color="rgba(255, 255, 255, 0.65)"
-        active-text-color="#1890ff"
-        @select="handleMenuSelect"
+        router
       >
-        <el-menu-item
-          v-for="item in menuItems"
-          :key="item.index"
-          :index="item.index"
-        >
-          <el-icon><component :is="item.icon" /></el-icon>
-          <template #title>{{ item.title }}</template>
+        <!-- 普通用户菜单 -->
+        <el-menu-item index="/dashboard">
+          <el-icon><House /></el-icon>
+          <template #title>工作台</template>
+        </el-menu-item>
+        
+        <el-menu-item index="/chat">
+          <el-icon><ChatDotRound /></el-icon>
+          <template #title>AI智能问答</template>
+        </el-menu-item>
+        
+        <el-menu-item index="/contract">
+          <el-icon><Document /></el-icon>
+          <template #title>合同审查</template>
+        </el-menu-item>
+        
+        <el-menu-item index="/history">
+          <el-icon><Clock /></el-icon>
+          <template #title>审查历史</template>
         </el-menu-item>
         
         <!-- 管理员菜单 -->
@@ -35,69 +45,68 @@
             <el-icon><Setting /></el-icon>
             <span>系统管理</span>
           </template>
-          <el-menu-item
-            v-for="item in adminMenuItems"
-            :key="item.index"
-            :index="item.index"
-          >
-            <el-icon><component :is="item.icon" /></el-icon>
-            <template #title>{{ item.title }}</template>
+          
+          <el-menu-item index="/admin/users">
+            <el-icon><User /></el-icon>
+            <template #title>用户管理</template>
+          </el-menu-item>
+          
+          <el-menu-item index="/admin/knowledge">
+            <el-icon><FolderOpened /></el-icon>
+            <template #title>知识库管理</template>
+          </el-menu-item>
+          
+          <el-menu-item index="/admin/statistics">
+            <el-icon><DataAnalysis /></el-icon>
+            <template #title>统计仪表盘</template>
           </el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
-
+    
+    <!-- 主内容区 -->
     <el-container>
-      <!-- 顶部导航 -->
+      <!-- 顶部导航栏 -->
       <el-header class="header">
         <div class="header-left">
           <el-button
-            text
-            @click="toggleCollapse"
-            class="collapse-btn"
+            type="text"
+            size="large"
+            @click="toggleSidebar"
           >
-            <el-icon><component :is="isCollapse ? 'Expand' : 'Fold'" /></el-icon>
+            <el-icon>
+              <Expand v-if="isCollapse" />
+              <Fold v-else />
+            </el-icon>
           </el-button>
           
-          <el-breadcrumb separator="/">
-            <el-breadcrumb-item>{{ currentPageTitle }}</el-breadcrumb-item>
+          <el-breadcrumb separator="/" class="breadcrumb">
+            <el-breadcrumb-item
+              v-for="item in breadcrumbList"
+              :key="item.path"
+              :to="item.path"
+            >
+              {{ item.title }}
+            </el-breadcrumb-item>
           </el-breadcrumb>
         </div>
         
         <div class="header-right">
-          <!-- 系统健康状态 -->
-          <el-tooltip content="系统状态" placement="bottom">
-            <el-button
-              text
-              circle
-              @click="checkSystemHealth"
-              :loading="healthChecking"
-            >
-              <el-icon :color="systemHealthy ? '#67c23a' : '#f56c6c'">
-                <CircleCheck v-if="systemHealthy" />
-                <CircleClose v-else />
-              </el-icon>
-            </el-button>
-          </el-tooltip>
-          
-          <!-- 用户菜单 -->
-          <el-dropdown @command="handleUserCommand">
-            <span class="user-dropdown">
-              <el-avatar :size="32" :src="userStore.userInfo?.avatar || undefined">
+          <!-- 用户信息下拉菜单 -->
+          <el-dropdown @command="handleCommand">
+            <div class="user-info">
+              <el-avatar :size="32" :src="userAvatar">
                 <el-icon><User /></el-icon>
               </el-avatar>
               <span class="username">{{ userStore.userInfo?.fullName || userStore.userInfo?.username }}</span>
-              <el-icon class="arrow-down"><ArrowDown /></el-icon>
-            </span>
+              <el-icon class="dropdown-icon"><ArrowDown /></el-icon>
+            </div>
+            
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="profile">
                   <el-icon><User /></el-icon>
-                  个人中心
-                </el-dropdown-item>
-                <el-dropdown-item command="settings">
-                  <el-icon><Setting /></el-icon>
-                  系统设置
+                  个人资料
                 </el-dropdown-item>
                 <el-dropdown-item divided command="logout">
                   <el-icon><SwitchButton /></el-icon>
@@ -108,12 +117,14 @@
           </el-dropdown>
         </div>
       </el-header>
-
-      <!-- 主内容区域 -->
+      
+      <!-- 主内容 -->
       <el-main class="main-content">
         <router-view v-slot="{ Component, route }">
-          <transition name="fade" mode="out-in">
-            <component :is="Component" :key="route.path" />
+          <transition name="fade-transform" mode="out-in">
+            <keep-alive>
+              <component :is="Component" :key="route.path" />
+            </keep-alive>
           </transition>
         </router-view>
       </el-main>
@@ -122,128 +133,120 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useUserStore } from '@/store/modules/user'
-import { getHealthStatusApi } from '@/api/healthService'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { useUserStore } from '@/store/modules/user'
+import { useAppStore } from '@/store/modules/app'
 import {
   Document,
-  Dashboard,
+  House,
   ChatDotRound,
   Clock,
-  User,
   Setting,
-  UserFilled,
-  Collection,
+  User,
+  FolderOpened,
   DataAnalysis,
   Expand,
   Fold,
   ArrowDown,
-  CircleCheck,
-  CircleClose,
   SwitchButton
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const appStore = useAppStore()
 
 // 侧边栏折叠状态
-const isCollapse = ref(false)
-const systemHealthy = ref(true)
-const healthChecking = ref(false)
+const isCollapse = computed(() => appStore.sidebarCollapsed)
 
-// 菜单配置
-const menuItems = [
-  { index: '/dashboard', title: '工作台', icon: 'Dashboard' },
-  { index: '/chat', title: 'AI智能问答', icon: 'ChatDotRound' },
-  { index: '/contract', title: '合同审查', icon: 'Document' },
-  { index: '/history', title: '审查历史', icon: 'Clock' },
-  { index: '/profile', title: '个人中心', icon: 'User' }
-]
-
-const adminMenuItems = [
-  { index: '/admin/users', title: '用户管理', icon: 'UserFilled' },
-  { index: '/admin/knowledge', title: '知识库管理', icon: 'Collection' },
-  { index: '/admin/statistics', title: '系统统计', icon: 'DataAnalysis' }
-]
+// 用户头像
+const userAvatar = ref('')
 
 // 当前激活的菜单项
-const activeMenuIndex = computed(() => {
-  return route.path
-})
+const activeMenu = computed(() => route.path)
 
-// 当前页面标题
-const currentPageTitle = computed(() => {
-  return route.meta?.title as string || '法律合规智能审查助手'
-})
-
-// 切换侧边栏折叠状态
-const toggleCollapse = () => {
-  isCollapse.value = !isCollapse.value
-}
-
-// 处理菜单选择
-const handleMenuSelect = (index: string) => {
-  if (index !== route.path) {
-    router.push(index)
+// 面包屑导航
+const breadcrumbList = computed(() => {
+  const matched = route.matched.filter(item => item.meta && item.meta.title)
+  const breadcrumbs = matched.map(item => ({
+    path: item.path,
+    title: item.meta?.title || ''
+  }))
+  
+  // 根据当前路由生成面包屑
+  const pathMap: Record<string, string> = {
+    '/dashboard': '工作台',
+    '/chat': 'AI智能问答',
+    '/contract': '合同审查',
+    '/history': '审查历史',
+    '/admin/users': '用户管理',
+    '/admin/knowledge': '知识库管理',
+    '/admin/statistics': '统计仪表盘',
+    '/profile': '个人资料'
   }
+  
+  const currentPath = route.path
+  const title = pathMap[currentPath] || '未知页面'
+  
+  return [
+    { path: '/dashboard', title: '首页' },
+    ...(currentPath !== '/dashboard' ? [{ path: currentPath, title }] : [])
+  ]
+})
+
+// 切换侧边栏
+const toggleSidebar = () => {
+  appStore.toggleSidebar()
 }
 
-// 处理用户下拉菜单命令
-const handleUserCommand = (command: string) => {
+// 处理用户菜单命令
+const handleCommand = async (command: string) => {
   switch (command) {
     case 'profile':
-      router.push('/profile')
-      break
-    case 'settings':
-      ElMessage.info('设置功能开发中...')
+      await router.push('/profile')
       break
     case 'logout':
-      handleLogout()
+      try {
+        await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+        
+        await userStore.logout()
+        ElMessage.success('已退出登录')
+        await router.push('/login')
+      } catch {
+        // 用户取消操作
+      }
       break
   }
 }
 
-// 处理退出登录
-const handleLogout = async () => {
-  try {
-    await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    
-    userStore.logout()
-    ElMessage.success('已退出登录')
-  } catch {
-    // 用户取消
+// 监听路由变化，在移动端自动收起侧边栏
+watch(
+  () => route.path,
+  () => {
+    if (window.innerWidth <= 768) {
+      appStore.setSidebarCollapsed(true)
+    }
+  }
+)
+
+// 响应式处理
+const handleResize = () => {
+  if (window.innerWidth <= 768) {
+    appStore.setSidebarCollapsed(true)
+  } else {
+    appStore.setSidebarCollapsed(false)
   }
 }
 
-// 检查系统健康状态
-const checkSystemHealth = async () => {
-  healthChecking.value = true
-  try {
-    const response = await getHealthStatusApi()
-    systemHealthy.value = response.data.status === 'UP'
-    ElMessage.success(`系统状态: ${systemHealthy.value ? '正常' : '异常'}`)
-  } catch (error) {
-    systemHealthy.value = false
-    ElMessage.error('无法获取系统状态')
-  } finally {
-    healthChecking.value = false
-  }
-}
-
-// 组件挂载时检查系统健康状态
-onMounted(() => {
-  checkSystemHealth()
-  
-  // 定期检查系统健康状态（每5分钟）
-  setInterval(checkSystemHealth, 5 * 60 * 1000)
-})
+// 监听窗口大小变化
+window.addEventListener('resize', handleResize)
+handleResize() // 初始化时执行一次
 </script>
 
 <style scoped>
@@ -252,50 +255,65 @@ onMounted(() => {
 }
 
 .sidebar {
-  background: #001529;
-  overflow: hidden;
+  background-color: #304156;
   transition: width 0.3s;
+  overflow: hidden;
 }
 
-.sidebar-header {
-  height: 64px;
+.logo-container {
+  height: 60px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid #1f1f1f;
+  background-color: #2b3a4b;
 }
 
 .logo {
   display: flex;
   align-items: center;
   color: white;
-  font-size: 18px;
   font-weight: 600;
-}
-
-.logo-icon {
-  font-size: 24px;
-  margin-right: 8px;
-  color: #1890ff;
-}
-
-.logo-icon-collapsed {
-  font-size: 24px;
-  color: #1890ff;
+  font-size: 16px;
 }
 
 .logo-text {
-  white-space: nowrap;
+  margin-left: 8px;
+  transition: opacity 0.3s;
 }
 
 .sidebar-menu {
   border: none;
-  height: calc(100vh - 64px);
+  background-color: #304156;
+}
+
+.sidebar-menu :deep(.el-menu-item) {
+  color: #bfcbd9;
+  border-bottom: none;
+}
+
+.sidebar-menu :deep(.el-menu-item:hover) {
+  background-color: #263445;
+  color: #409EFF;
+}
+
+.sidebar-menu :deep(.el-menu-item.is-active) {
+  background-color: #409EFF;
+  color: white;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title) {
+  color: #bfcbd9;
+  border-bottom: none;
+}
+
+.sidebar-menu :deep(.el-sub-menu__title:hover) {
+  background-color: #263445;
+  color: #409EFF;
 }
 
 .header {
-  background: white;
-  border-bottom: 1px solid #f0f0f0;
+  background-color: white;
+  border-bottom: 1px solid #e4e7ed;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -307,52 +325,83 @@ onMounted(() => {
   align-items: center;
 }
 
-.collapse-btn {
-  margin-right: 16px;
-  font-size: 18px;
+.breadcrumb {
+  margin-left: 20px;
 }
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
 }
 
-.user-dropdown {
+.user-info {
   display: flex;
   align-items: center;
   cursor: pointer;
-  padding: 8px;
+  padding: 8px 12px;
   border-radius: 4px;
   transition: background-color 0.3s;
 }
 
-.user-dropdown:hover {
-  background-color: #f5f5f5;
+.user-info:hover {
+  background-color: #f5f7fa;
 }
 
 .username {
   margin: 0 8px;
   font-size: 14px;
+  color: #606266;
 }
 
-.arrow-down {
+.dropdown-icon {
   font-size: 12px;
+  color: #909399;
 }
 
 .main-content {
-  background: #f5f5f5;
+  background-color: #f0f2f5;
   padding: 20px;
-  overflow: auto;
+  overflow-y: auto;
 }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
+/* 页面切换动画 */
+.fade-transform-enter-active,
+.fade-transform-leave-active {
+  transition: all 0.3s;
 }
 
-.fade-enter-from,
-.fade-leave-to {
+.fade-transform-enter-from {
   opacity: 0;
+  transform: translateX(30px);
+}
+
+.fade-transform-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .header {
+    padding: 0 15px;
+  }
+  
+  .breadcrumb {
+    margin-left: 10px;
+  }
+  
+  .username {
+    display: none;
+  }
+  
+  .main-content {
+    padding: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .main-content {
+    padding: 10px;
+  }
 }
 </style>

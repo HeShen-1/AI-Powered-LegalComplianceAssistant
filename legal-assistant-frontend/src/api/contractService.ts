@@ -37,9 +37,22 @@ export const downloadReportApi = (reviewId: number) => {
   })
 }
 
+// 删除审查记录
+export const deleteReviewApi = (reviewId: number) => {
+  return apiClient.delete<ApiResponse<void>>(`/contracts/${reviewId}`)
+}
+
 // 创建SSE连接进行异步审查
-export const createAnalysisSSE = (reviewId: number, onMessage: (event: MessageEvent) => void, onError?: (event: Event) => void) => {
-  const eventSource = new EventSource(`/api/contracts/${reviewId}/analyze-async`, {
+export const createAnalysisSSE = (reviewId: number, token: string | null, onMessage: (event: MessageEvent) => void, onError?: (event: Event) => void) => {
+  // 在开发环境下需要使用完整的URL指向后端服务器
+  const isDev = import.meta.env.DEV
+  const baseUrl = isDev ? 'http://localhost:8080' : ''
+  
+  const url = token 
+    ? `${baseUrl}/api/v1/contracts/${reviewId}/analyze-async?token=${encodeURIComponent(token)}`
+    : `${baseUrl}/api/v1/contracts/${reviewId}/analyze-async`
+  
+  const eventSource = new EventSource(url, {
     withCredentials: true
   })
   

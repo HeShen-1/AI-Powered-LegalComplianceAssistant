@@ -50,4 +50,14 @@ public interface ContractReviewRepository extends JpaRepository<ContractReview, 
      */
     @Query("SELECT cr.riskLevel, COUNT(cr) FROM ContractReview cr WHERE cr.riskLevel IS NOT NULL GROUP BY cr.riskLevel")
     List<Object[]> countByRiskLevel();
+
+    /**
+     * 根据ID查找审查记录，同时加载关联的风险条款和用户信息
+     * 用于避免懒加载异常
+     */
+    @Query("SELECT cr FROM ContractReview cr " +
+           "LEFT JOIN FETCH cr.riskClauses " +
+           "LEFT JOIN FETCH cr.user " +
+           "WHERE cr.id = :id")
+    Optional<ContractReview> findByIdWithRiskClauses(@Param("id") Long id);
 }

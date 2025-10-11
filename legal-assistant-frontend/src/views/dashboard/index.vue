@@ -4,388 +4,402 @@
     <el-card class="welcome-card" shadow="never">
       <div class="welcome-content">
         <div class="welcome-text">
-          <h1>欢迎回来，{{ userStore.userInfo?.fullName || userStore.userInfo?.username }}！</h1>
-          <p>您的专业法律AI助手，为您提供智能的法律文档审查和咨询服务</p>
+          <h2>👋 欢迎回来，{{ userStore.userInfo?.fullName || userStore.userInfo?.username }}！</h2>
+          <p class="welcome-subtitle">
+            今天是 {{ currentDate }}，让我们开始您的法律工作之旅
+          </p>
         </div>
         <div class="welcome-actions">
-          <el-button type="primary" size="large" @click="$router.push('/chat')">
-            <el-icon><ChatDotRound /></el-icon>
-            开始咨询
-          </el-button>
-          <el-button size="large" @click="$router.push('/contract')">
+          <el-button type="primary" size="large" @click="$router.push('/contract')">
             <el-icon><Document /></el-icon>
-            审查合同
+            开始审查合同
+          </el-button>
+          <el-button type="success" size="large" @click="$router.push('/chat')">
+            <el-icon><ChatDotRound /></el-icon>
+            AI智能问答
           </el-button>
         </div>
       </div>
     </el-card>
-
-    <!-- 统计卡片 -->
-    <div class="stats-grid">
-      <el-card class="stat-card" shadow="hover">
-        <div class="stat-content">
-          <div class="stat-icon chat-icon">
-            <el-icon><ChatDotRound /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">{{ stats.totalChats }}</div>
-            <div class="stat-label">AI对话次数</div>
-          </div>
-        </div>
-      </el-card>
-
-      <el-card class="stat-card" shadow="hover">
-        <div class="stat-content">
-          <div class="stat-icon contract-icon">
-            <el-icon><Document /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">{{ stats.totalReviews }}</div>
-            <div class="stat-label">合同审查次数</div>
-          </div>
-        </div>
-      </el-card>
-
-      <el-card class="stat-card" shadow="hover">
-        <div class="stat-content">
-          <div class="stat-icon risk-icon">
-            <el-icon><WarningFilled /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">{{ stats.riskIssues }}</div>
-            <div class="stat-label">发现风险条款</div>
-          </div>
-        </div>
-      </el-card>
-
-      <el-card class="stat-card" shadow="hover">
-        <div class="stat-content">
-          <div class="stat-icon time-icon">
-            <el-icon><Clock /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">{{ stats.savedHours }}</div>
-            <div class="stat-label">节省工作时间(小时)</div>
-          </div>
-        </div>
-      </el-card>
-    </div>
-
-    <!-- 主要功能区域 -->
-    <div class="main-content">
-      <div class="left-column">
-        <!-- 快速操作 -->
-        <el-card class="quick-actions" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <el-icon><Lightning /></el-icon>
-              <span>快速操作</span>
+    
+    <!-- 数据统计卡片 -->
+    <el-row :gutter="20" class="stats-row">
+      <el-col :xs="24" :sm="12" :lg="6">
+        <el-card class="stat-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon total">
+              <el-icon size="32"><Document /></el-icon>
             </div>
-          </template>
-
-          <div class="action-grid">
-            <div class="action-item" @click="$router.push('/chat')">
-              <div class="action-icon">
-                <el-icon><ChatDotRound /></el-icon>
-              </div>
-              <div class="action-text">
-                <h4>AI智能问答</h4>
-                <p>专业法律咨询，即问即答</p>
-              </div>
-            </div>
-
-            <div class="action-item" @click="$router.push('/contract')">
-              <div class="action-icon">
-                <el-icon><Document /></el-icon>
-              </div>
-              <div class="action-text">
-                <h4>合同智能审查</h4>
-                <p>AI深度分析，风险预警</p>
-              </div>
-            </div>
-
-            <div class="action-item" @click="$router.push('/history')">
-              <div class="action-icon">
-                <el-icon><Clock /></el-icon>
-              </div>
-              <div class="action-text">
-                <h4>历史记录</h4>
-                <p>查看过往审查记录</p>
-              </div>
-            </div>
-
-            <div class="action-item" @click="openKnowledgeCenter">
-              <div class="action-icon">
-                <el-icon><Reading /></el-icon>
-              </div>
-              <div class="action-text">
-                <h4>法律知识库</h4>
-                <p>海量法律法规查询</p>
-              </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ stats.totalReviews }}</div>
+              <div class="stat-label">总审查数</div>
             </div>
           </div>
         </el-card>
-
-        <!-- 最近审查 -->
+      </el-col>
+      
+      <el-col :xs="24" :sm="12" :lg="6">
+        <el-card class="stat-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon completed">
+              <el-icon size="32"><CircleCheck /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ stats.completedReviews }}</div>
+              <div class="stat-label">已完成</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      
+      <el-col :xs="24" :sm="12" :lg="6">
+        <el-card class="stat-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon processing">
+              <el-icon size="32"><Loading /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ stats.processingReviews }}</div>
+              <div class="stat-label">处理中</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      
+      <el-col :xs="24" :sm="12" :lg="6">
+        <el-card class="stat-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon high-risk">
+              <el-icon size="32"><Warning /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-number">{{ stats.highRiskReviews }}</div>
+              <div class="stat-label">高风险</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+    
+    <!-- 主要内容区域 -->
+    <el-row :gutter="20" class="main-content">
+      <!-- 最近审查记录 -->
+      <el-col :xs="24" :lg="14">
         <el-card class="recent-reviews" shadow="never">
           <template #header>
             <div class="card-header">
-              <el-icon><DocumentChecked /></el-icon>
-              <span>最近审查</span>
-              <el-button text type="primary" @click="$router.push('/history')">
+              <h4>📋 最近审查记录</h4>
+              <el-button type="text" @click="$router.push('/history')">
                 查看全部
+                <el-icon><ArrowRight /></el-icon>
               </el-button>
             </div>
           </template>
-
-          <div v-if="recentReviews.length === 0" class="empty-state">
-            <el-empty description="暂无审查记录" :image-size="80">
-              <el-button type="primary" @click="$router.push('/contract')">
-                开始审查
-              </el-button>
-            </el-empty>
-          </div>
-
-          <div v-else class="reviews-list">
+          
+          <div v-if="recentReviews.length > 0" class="reviews-list">
             <div
               v-for="review in recentReviews"
               :key="review.id"
               class="review-item"
-              @click="viewReviewDetail(review)"
+              @click="viewReview(review)"
             >
+              <div class="review-icon">
+                <el-icon size="24" color="#409EFF"><Document /></el-icon>
+              </div>
               <div class="review-info">
-                <div class="review-name">{{ review.filename }}</div>
-                <div class="review-time">
-                  {{ formatTime(review.createdAt) }}
+                <div class="review-title">{{ review.originalFilename }}</div>
+                <div class="review-meta">
+                  <span class="review-time">{{ formatTime(review.createdAt) }}</span>
+                  <el-tag
+                    :type="getStatusType(review.reviewStatus)"
+                    size="small"
+                  >
+                    {{ getStatusText(review.reviewStatus) }}
+                  </el-tag>
+                  <el-tag
+                    v-if="review.riskLevel"
+                    :type="getRiskType(review.riskLevel)"
+                    size="small"
+                  >
+                    {{ getRiskText(review.riskLevel) }}
+                  </el-tag>
                 </div>
               </div>
-              <div class="review-status">
-                <el-tag :type="getStatusType(review.status)">
-                  {{ getStatusText(review.status) }}
-                </el-tag>
-                <el-tag
-                  v-if="review.riskLevel"
-                  :type="getRiskLevelType(review.riskLevel)"
-                  size="small"
-                >
-                  {{ getRiskLevelText(review.riskLevel) }}
-                </el-tag>
+              <div class="review-actions">
+                <el-icon><ArrowRight /></el-icon>
               </div>
             </div>
           </div>
+          <el-empty v-else description="暂无审查记录" />
         </el-card>
-      </div>
-
-      <div class="right-column">
-        <!-- 系统公告 -->
-        <el-card class="announcements" shadow="never">
+      </el-col>
+      
+      <!-- 快捷操作和系统信息 -->
+      <el-col :xs="24" :lg="10">
+        <!-- 快捷操作 -->
+        <el-card class="quick-actions" shadow="never">
           <template #header>
-            <div class="card-header">
-              <el-icon><Bell /></el-icon>
-              <span>系统公告</span>
-            </div>
+            <h4>⚡ 快捷操作</h4>
           </template>
-
-          <div class="announcement-list">
-            <div
-              v-for="announcement in announcements"
-              :key="announcement.id"
-              class="announcement-item"
-            >
-              <div class="announcement-title">{{ announcement.title }}</div>
-              <div class="announcement-content">{{ announcement.content }}</div>
-              <div class="announcement-time">{{ formatTime(announcement.createdAt) }}</div>
+          
+          <div class="actions-grid">
+            <div class="action-item" @click="$router.push('/contract')">
+              <div class="action-icon upload">
+                <el-icon size="24"><UploadFilled /></el-icon>
+              </div>
+              <div class="action-text">
+                <div class="action-title">上传合同</div>
+                <div class="action-desc">开始新的合同审查</div>
+              </div>
+            </div>
+            
+            <div class="action-item" @click="$router.push('/chat')">
+              <div class="action-icon chat">
+                <el-icon size="24"><ChatDotRound /></el-icon>
+              </div>
+              <div class="action-text">
+                <div class="action-title">AI问答</div>
+                <div class="action-desc">咨询法律问题</div>
+              </div>
+            </div>
+            
+            <div class="action-item" @click="$router.push('/history')">
+              <div class="action-icon history">
+                <el-icon size="24"><Clock /></el-icon>
+              </div>
+              <div class="action-text">
+                <div class="action-title">查看历史</div>
+                <div class="action-desc">管理审查记录</div>
+              </div>
+            </div>
+            
+            <div class="action-item" @click="$router.push('/profile')">
+              <div class="action-icon profile">
+                <el-icon size="24"><User /></el-icon>
+              </div>
+              <div class="action-text">
+                <div class="action-title">个人设置</div>
+                <div class="action-desc">管理账户信息</div>
+              </div>
             </div>
           </div>
         </el-card>
-
-        <!-- 使用技巧 -->
-        <el-card class="tips" shadow="never">
+        
+        <!-- 系统信息 -->
+        <el-card class="system-info" shadow="never">
           <template #header>
-            <div class="card-header">
-              <el-icon><QuestionFilled /></el-icon>
-              <span>使用技巧</span>
-            </div>
+            <h4>ℹ️ 系统信息</h4>
           </template>
-
-          <div class="tips-list">
-            <div
-              v-for="tip in usageTips"
-              :key="tip.id"
-              class="tip-item"
-            >
-              <div class="tip-icon">
-                <el-icon><InfoFilled /></el-icon>
-              </div>
-              <div class="tip-content">
-                <h5>{{ tip.title }}</h5>
-                <p>{{ tip.content }}</p>
-              </div>
+          
+          <div class="info-list">
+            <div class="info-item">
+              <span class="info-label">系统版本：</span>
+              <span class="info-value">v1.0.0</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">AI模型：</span>
+              <span class="info-value">DeepSeek</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">知识库：</span>
+              <span class="info-value">最新法律法规</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">最后更新：</span>
+              <span class="info-value">{{ lastUpdateTime }}</span>
             </div>
           </div>
+          
+          <div class="system-status">
+            <el-alert
+              title="系统运行正常"
+              type="success"
+              :closable="false"
+              show-icon
+            />
+          </div>
         </el-card>
-      </div>
-    </div>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import {
+  Document,
+  ChatDotRound,
+  CircleCheck,
+  Loading,
+  Warning,
+  ArrowRight,
+  UploadFilled,
+  Clock,
+  User
+} from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/modules/user'
 import { getMyReviewsApi } from '@/api/contractService'
-import { ElMessage } from 'element-plus'
-import type { ContractReview } from '@/types/api'
-import {
-  ChatDotRound,
-  Document,
-  WarningFilled,
-  Clock,
-  Lightning,
-  DocumentChecked,
-  Reading,
-  Bell,
-  QuestionFilled,
-  InfoFilled
-} from '@element-plus/icons-vue'
+
+// 类型定义
+interface ReviewRecord {
+  id: number
+  filename: string
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+  riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH'
+  createdAt: string
+  completedAt?: string
+}
+
+interface DashboardStats {
+  totalReviews: number
+  completedReviews: number
+  processingReviews: number
+  highRiskReviews: number
+}
 
 const router = useRouter()
 const userStore = useUserStore()
 
-// 统计数据
-const stats = reactive({
-  totalChats: 0,
+// 响应式数据
+const stats = ref<DashboardStats>({
   totalReviews: 0,
-  riskIssues: 0,
-  savedHours: 0
+  completedReviews: 0,
+  processingReviews: 0,
+  highRiskReviews: 0
 })
 
-// 最近审查记录
-const recentReviews = ref<ContractReview[]>([])
+const recentReviews = ref<ReviewRecord[]>([])
 
-// 系统公告
-const announcements = ref([
-  {
-    id: 1,
-    title: '系统升级通知',
-    content: '系统将于本周六凌晨2:00-4:00进行维护升级，期间服务可能短暂中断。',
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 2,
-    title: '新功能上线',
-    content: 'AI智能问答功能全新升级，支持更准确的法律条文检索和分析。',
-    createdAt: new Date(Date.now() - 86400000).toISOString()
-  }
-])
+// 计算属性
+const currentDate = computed(() => {
+  return new Date().toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long'
+  })
+})
 
-// 使用技巧
-const usageTips = ref([
-  {
-    id: 1,
-    title: '提问技巧',
-    content: '在AI问答中，描述具体的法律场景能获得更准确的建议。'
-  },
-  {
-    id: 2,
-    title: '合同审查',
-    content: '上传前请确保合同文件格式正确，支持PDF、Word等格式。'
-  },
-  {
-    id: 3,
-    title: '风险提醒',
-    content: '高风险条款需要特别关注，建议咨询专业律师进一步确认。'
-  }
-])
+const lastUpdateTime = computed(() => {
+  return new Date().toLocaleDateString('zh-CN')
+})
 
-// 加载仪表盘数据
-const loadDashboardData = async () => {
-  try {
-    // 加载最近审查记录
-    const reviewsResponse = await getMyReviewsApi({ page: 0, size: 5 })
-    if (reviewsResponse.data.success) {
-      recentReviews.value = reviewsResponse.data.data
-      
-      // 更新统计数据
-      stats.totalReviews = reviewsResponse.data.totalElements
-      stats.riskIssues = recentReviews.value.filter(r => r.riskLevel === 'HIGH').length
-      stats.savedHours = Math.ceil(stats.totalReviews * 2.5) // 假设每次审查节省2.5小时
-    }
-
-    // 模拟其他统计数据
-    stats.totalChats = Math.floor(Math.random() * 50) + 20
-  } catch (error) {
-    console.error('Failed to load dashboard data:', error)
-  }
-}
-
-// 查看审查详情
-const viewReviewDetail = (review: ContractReview) => {
-  // 这里可以打开详情对话框或跳转到详情页
-  ElMessage.info(`查看审查详情: ${review.filename}`)
-}
-
-// 打开知识中心
-const openKnowledgeCenter = () => {
-  ElMessage.info('知识中心功能开发中...')
-}
-
-// 辅助函数
-const formatTime = (timestamp: string) => {
-  const date = new Date(timestamp)
+// 工具函数
+const formatTime = (dateStr: string) => {
+  const date = new Date(dateStr)
   const now = new Date()
   const diff = now.getTime() - date.getTime()
   
-  if (diff < 3600000) { // 1小时内
-    return `${Math.floor(diff / 60000)}分钟前`
-  } else if (diff < 86400000) { // 1天内
-    return `${Math.floor(diff / 3600000)}小时前`
+  const minutes = Math.floor(diff / (1000 * 60))
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+  
+  if (minutes < 60) {
+    return `${minutes}分钟前`
+  } else if (hours < 24) {
+    return `${hours}小时前`
+  } else if (days < 7) {
+    return `${days}天前`
   } else {
     return date.toLocaleDateString('zh-CN')
   }
 }
 
 const getStatusType = (status: string) => {
-  const statusMap = {
+  const typeMap = {
     PENDING: 'info',
     PROCESSING: 'warning',
     COMPLETED: 'success',
     FAILED: 'danger'
   }
-  return statusMap[status as keyof typeof statusMap] || 'info'
+  return typeMap[status as keyof typeof typeMap] || 'info'
 }
 
 const getStatusText = (status: string) => {
-  const statusMap = {
+  const textMap = {
     PENDING: '待处理',
     PROCESSING: '处理中',
     COMPLETED: '已完成',
     FAILED: '失败'
   }
-  return statusMap[status as keyof typeof statusMap] || status
+  return textMap[status as keyof typeof textMap] || status
 }
 
-const getRiskLevelType = (level: string) => {
-  const levelMap = {
+const getRiskType = (level: string) => {
+  const typeMap = {
     LOW: 'success',
     MEDIUM: 'warning',
     HIGH: 'danger'
   }
-  return levelMap[level as keyof typeof levelMap] || 'info'
+  return typeMap[level as keyof typeof typeMap] || 'info'
 }
 
-const getRiskLevelText = (level: string) => {
-  const levelMap = {
+const getRiskText = (level: string) => {
+  const textMap = {
     LOW: '低风险',
     MEDIUM: '中风险',
     HIGH: '高风险'
   }
-  return levelMap[level as keyof typeof levelMap] || level
+  return textMap[level as keyof typeof textMap] || level
 }
 
-// 组件挂载时加载数据
+// 数据获取
+const fetchDashboardData = async () => {
+  try {
+    // 调用真实API获取审查记录
+    // 注意：后端接收的参数是 page 和 size，page 从 0 开始
+    const response = await getMyReviewsApi({ page: 0, size: 10 })
+    
+    if (response.data && response.data.data) {
+      const reviews = response.data.data.content || []
+      
+      // 计算统计数据
+      stats.value = {
+        totalReviews: response.data.data.totalElements || 0,
+        completedReviews: reviews.filter((r: any) => r.reviewStatus === 'COMPLETED').length,
+        processingReviews: reviews.filter((r: any) => r.reviewStatus === 'PROCESSING').length,
+        highRiskReviews: reviews.filter((r: any) => r.riskLevel === 'HIGH').length
+      }
+      
+      // 获取最近5条审查记录
+      recentReviews.value = reviews.slice(0, 5)
+    } else {
+      // 如果没有数据，初始化为空
+      stats.value = {
+        totalReviews: 0,
+        completedReviews: 0,
+        processingReviews: 0,
+        highRiskReviews: 0
+      }
+      recentReviews.value = []
+    }
+  } catch (error) {
+    console.error('Failed to fetch dashboard data:', error)
+    // 初始化为空数据而不是显示错误
+    stats.value = {
+      totalReviews: 0,
+      completedReviews: 0,
+      processingReviews: 0,
+      highRiskReviews: 0
+    }
+    recentReviews.value = []
+  }
+}
+
+// 事件处理
+const viewReview = (review: ReviewRecord) => {
+  if (review.reviewStatus === 'COMPLETED') {
+    router.push('/history')
+  } else {
+    ElMessage.info('审查尚未完成')
+  }
+}
+
+// 组件挂载时获取数据
 onMounted(() => {
-  loadDashboardData()
+  fetchDashboardData()
 })
 </script>
 
@@ -396,50 +410,45 @@ onMounted(() => {
 }
 
 .welcome-card {
-  margin-bottom: 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border: none;
+  margin-bottom: 20px;
 }
 
 .welcome-content {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  color: white;
+  align-items: center;
+  padding: 20px 0;
 }
 
-.welcome-text h1 {
+.welcome-text h2 {
   margin: 0 0 8px 0;
-  font-size: 28px;
-  font-weight: 300;
+  font-size: 24px;
+  color: #2c3e50;
 }
 
-.welcome-text p {
+.welcome-subtitle {
   margin: 0;
-  opacity: 0.9;
-  font-size: 16px;
+  color: #7f8c8d;
+  font-size: 14px;
 }
 
 .welcome-actions {
   display: flex;
-  gap: 16px;
+  gap: 12px;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 20px;
-  margin-bottom: 24px;
+.stats-row {
+  margin-bottom: 20px;
 }
 
 .stat-card {
-  border: none;
+  height: 120px;
 }
 
 .stat-content {
   display: flex;
   align-items: center;
-  gap: 16px;
+  height: 100%;
 }
 
 .stat-icon {
@@ -449,248 +458,274 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 24px;
-  color: white;
+  margin-right: 16px;
 }
 
-.chat-icon {
-  background: linear-gradient(135deg, #667eea, #764ba2);
+.stat-icon.total {
+  background-color: #e3f2fd;
+  color: #1976d2;
 }
 
-.contract-icon {
-  background: linear-gradient(135deg, #f093fb, #f5576c);
+.stat-icon.completed {
+  background-color: #e8f5e8;
+  color: #388e3c;
 }
 
-.risk-icon {
-  background: linear-gradient(135deg, #4facfe, #00f2fe);
+.stat-icon.processing {
+  background-color: #fff3e0;
+  color: #f57c00;
 }
 
-.time-icon {
-  background: linear-gradient(135deg, #43e97b, #38f9d7);
+.stat-icon.high-risk {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.stat-info {
+  flex: 1;
 }
 
 .stat-number {
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1;
+  font-size: 28px;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 4px;
 }
 
 .stat-label {
+  color: #7f8c8d;
   font-size: 14px;
-  color: var(--text-secondary);
-  margin-top: 4px;
 }
 
 .main-content {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 24px;
+  margin-top: 20px;
 }
 
 .card-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  font-weight: 600;
 }
 
-.card-header .el-button {
-  margin-left: auto;
+.card-header h4 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.reviews-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.review-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.review-item:hover {
+  background-color: #f8f9fa;
+}
+
+.review-item:last-child {
+  border-bottom: none;
+}
+
+.review-icon {
+  margin-right: 16px;
+}
+
+.review-info {
+  flex: 1;
+}
+
+.review-title {
+  font-weight: 500;
+  color: #2c3e50;
+  margin-bottom: 8px;
+}
+
+.review-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-time {
+  color: #7f8c8d;
+  font-size: 13px;
+}
+
+.review-actions {
+  color: #c0c4cc;
 }
 
 .quick-actions {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
-.action-grid {
+.actions-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
 
 .action-item {
   display: flex;
   align-items: center;
-  gap: 12px;
   padding: 16px;
-  border: 1px solid var(--border-light);
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
+  border: 1px solid #e4e7ed;
 }
 
 .action-item:hover {
-  border-color: var(--primary-color);
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.2);
+  border-color: #409EFF;
+  background-color: #f0f9ff;
 }
 
 .action-icon {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 8px;
-  background: var(--primary-color);
-  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  margin-right: 12px;
 }
 
-.action-text h4 {
-  margin: 0 0 4px 0;
-  font-size: 16px;
-  color: var(--text-primary);
+.action-icon.upload {
+  background-color: #e3f2fd;
+  color: #1976d2;
 }
 
-.action-text p {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-secondary);
+.action-icon.chat {
+  background-color: #e8f5e8;
+  color: #388e3c;
 }
 
-.recent-reviews {
-  margin-bottom: 24px;
+.action-icon.history {
+  background-color: #fff3e0;
+  color: #f57c00;
 }
 
-.empty-state {
-  padding: 40px 0;
-  text-align: center;
+.action-icon.profile {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
 }
 
-.reviews-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.action-text {
+  flex: 1;
 }
 
-.review-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s;
-}
-
-.review-item:hover {
-  border-color: var(--primary-color);
-  background: #f8f9ff;
-}
-
-.review-name {
+.action-title {
   font-weight: 500;
-  color: var(--text-primary);
+  color: #2c3e50;
   margin-bottom: 4px;
 }
 
-.review-time {
-  font-size: 14px;
-  color: var(--text-secondary);
-}
-
-.review-status {
-  display: flex;
-  gap: 8px;
-}
-
-.announcements {
-  margin-bottom: 24px;
-}
-
-.announcement-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.announcement-item {
-  padding: 16px;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  background: #f8f9fa;
-}
-
-.announcement-title {
-  font-weight: 500;
-  color: var(--text-primary);
-  margin-bottom: 8px;
-}
-
-.announcement-content {
-  font-size: 14px;
-  color: var(--text-regular);
-  line-height: 1.5;
-  margin-bottom: 8px;
-}
-
-.announcement-time {
+.action-desc {
+  color: #7f8c8d;
   font-size: 12px;
-  color: var(--text-placeholder);
 }
 
-.tips-list {
+.system-info {
+  height: fit-content;
+}
+
+.info-list {
+  margin-bottom: 20px;
+}
+
+.info-item {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-.tip-item {
-  display: flex;
-  gap: 12px;
+.info-item:last-child {
+  border-bottom: none;
 }
 
-.tip-icon {
-  color: var(--primary-color);
-  font-size: 16px;
-  margin-top: 2px;
-}
-
-.tip-content h5 {
-  margin: 0 0 4px 0;
+.info-label {
+  color: #7f8c8d;
   font-size: 14px;
-  color: var(--text-primary);
 }
 
-.tip-content p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.5;
+.info-value {
+  color: #2c3e50;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-@media (max-width: 1024px) {
-  .main-content {
-    grid-template-columns: 1fr;
-  }
-  
+.system-status {
+  margin-top: 16px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
   .welcome-content {
     flex-direction: column;
-    text-align: center;
     gap: 20px;
-  }
-  
-  .action-grid {
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  }
-}
-
-@media (max-width: 768px) {
-  .stats-grid {
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 16px;
+    text-align: center;
   }
   
   .welcome-actions {
     flex-direction: column;
     width: 100%;
-    gap: 12px;
   }
   
   .welcome-actions .el-button {
     width: 100%;
+  }
+  
+  .stats-row .el-col {
+    margin-bottom: 15px;
+  }
+  
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .review-item {
+    padding: 12px;
+  }
+  
+  .review-meta {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .welcome-text h2 {
+    font-size: 20px;
+  }
+  
+  .stat-number {
+    font-size: 24px;
+  }
+  
+  .action-item {
+    padding: 12px;
+  }
+  
+  .action-icon {
+    width: 40px;
+    height: 40px;
+  }
+  
+  .action-title {
+    font-size: 14px;
+  }
+  
+  .action-desc {
+    font-size: 11px;
   }
 }
 </style>

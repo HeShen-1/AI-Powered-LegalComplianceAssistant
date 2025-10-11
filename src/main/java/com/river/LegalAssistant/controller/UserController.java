@@ -16,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -23,7 +24,7 @@ import java.util.Optional;
  * 用户管理控制器
  */
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/users")
 @RequiredArgsConstructor
 @Slf4j
 @Tag(name = "用户管理", description = "用户注册、信息管理等接口")
@@ -40,7 +41,7 @@ public class UserController {
         @ApiResponse(responseCode = "200", description = "用户注册成功", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"success\":true,\"message\":\"用户注册成功\",\"userId\":1,\"username\":\"newuser\"}"))),
         @ApiResponse(responseCode = "400", description = "注册失败，例如用户名或邮箱已存在", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"success\":false,\"message\":\"用户名已存在\"}")))
     })
-    public ResponseEntity<Map<String, Object>> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<Map<String, Object>> register(@jakarta.validation.Valid @RequestBody RegisterRequest request) {
         try {
             User user = userService.createUser(
                 request.getUsername(),
@@ -61,6 +62,38 @@ public class UserController {
                 "message", e.getMessage()
             ));
         }
+    }
+
+    /**
+     * 获取所有用户列表（管理员）
+     */
+    @GetMapping
+    @Operation(summary = "获取所有用户列表（管理员）", description = "获取系统中所有用户的列表。仅限管理员访问。")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "获取成功"),
+        @ApiResponse(responseCode = "401", description = "用户未认证"),
+        @ApiResponse(responseCode = "403", description = "权限不足")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<java.util.List<Map<String, Object>>> getAllUsers() {
+        java.util.List<User> users = userService.findAll();
+        
+        java.util.List<Map<String, Object>> userList = users.stream()
+            .map(user -> {
+                Map<String, Object> userMap = new HashMap<>();
+                userMap.put("id", user.getId());
+                userMap.put("username", user.getUsername());
+                userMap.put("email", user.getEmail());
+                userMap.put("fullName", user.getFullName() != null ? user.getFullName() : "");
+                userMap.put("role", user.getRole().toString());
+                userMap.put("enabled", user.isEnabled());
+                userMap.put("createdAt", user.getCreatedAt().toString());
+                return userMap;
+            })
+            .collect(java.util.stream.Collectors.toList());
+        
+        return ResponseEntity.ok(userList);
     }
 
     /**
@@ -174,7 +207,7 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> updateUser(
             @Parameter(description = "待更新用户的唯一ID", required = true, example = "1")
             @PathVariable Long id,
-            @RequestBody UpdateUserRequest request) {
+            @jakarta.validation.Valid @RequestBody UpdateUserRequest request) {
         try {
             User updatedUser = userService.updateUser(id, request.getFullName(), request.getEmail());
             
@@ -213,7 +246,7 @@ public class UserController {
     public ResponseEntity<Map<String, Object>> changePassword(
             @Parameter(description = "待修改密码用户的唯一ID", required = true, example = "1")
             @PathVariable Long id,
-            @RequestBody ChangePasswordRequest request) {
+            @jakarta.validation.Valid @RequestBody ChangePasswordRequest request) {
         try {
             userService.changePassword(id, request.getOldPassword(), request.getNewPassword());
             
@@ -226,6 +259,30 @@ public class UserController {
                 "success", false,
                 "message", e.getMessage()
             ));
+        }
+    }
+
+    /**
+     * 获取用户统计数据
+     */
+    @GetMapping("/{id}/stats")
+    @Operation(summary = "获取用户统计数据", description = "获取用户的使用统计数据，包括合同审查数量、AI问答次数等信息。")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "获取成功"),
+        @ApiResponse(responseCode = "401", description = "用户未认证"),
+        @ApiResponse(responseCode = "403", description = "无权访问该用户统计数据"),
+        @ApiResponse(responseCode = "404", description = "指定ID的用户不存在")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN') or authentication.principal.id == #id")
+    public ResponseEntity<com.river.LegalAssistant.dto.UserStatsDto> getUserStats(
+            @Parameter(description = "用户的唯一ID", required = true, example = "1")
+            @PathVariable Long id) {
+        try {
+            com.river.LegalAssistant.dto.UserStatsDto stats = userService.getUserStats(id);
+            return ResponseEntity.ok(stats);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.notFound().build();
         }
     }
 
@@ -264,15 +321,80 @@ public class UserController {
         }
     }
 
+    /**
+     * 删除用户
+     */
+    @DeleteMapping("/{id}")
+    @Operation(summary = "删除用户（管理员）", description = "管理员删除指定用户。此操作不可恢复，会删除用户的所有相关数据。")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "删除成功", content = @Content(mediaType = "application/json", schema = @Schema(example = "{\"success\":true,\"message\":\"用户已删除\"}"))),
+        @ApiResponse(responseCode = "400", description = "删除失败，例如不能删除自己或最后一个管理员"),
+        @ApiResponse(responseCode = "401", description = "用户未认证"),
+        @ApiResponse(responseCode = "403", description = "权限不足"),
+        @ApiResponse(responseCode = "404", description = "指定ID的用户不存在")
+    })
+    @SecurityRequirement(name = "bearerAuth")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> deleteUser(
+            @Parameter(description = "待删除用户的唯一ID", required = true, example = "2")
+            @PathVariable Long id,
+            org.springframework.security.core.Authentication authentication) {
+        try {
+            // 获取当前登录的管理员
+            org.springframework.security.core.userdetails.UserDetails principal = 
+                (org.springframework.security.core.userdetails.UserDetails) authentication.getPrincipal();
+            
+            // 不允许删除自己
+            Optional<User> currentUserOpt = userService.findByUsername(principal.getUsername());
+            if (currentUserOpt.isPresent() && currentUserOpt.get().getId().equals(id)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "message", "不能删除自己的账户"
+                ));
+            }
+            
+            // 删除用户
+            userService.deleteUser(id);
+            
+            log.info("管理员 {} 删除了用户 {}", principal.getUsername(), id);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "用户已删除"
+            ));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "message", e.getMessage()
+            ));
+        } catch (Exception e) {
+            log.error("删除用户失败", e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "success", false,
+                "message", "删除用户失败: " + e.getMessage()
+            ));
+        }
+    }
+
     // 请求DTO类 - 这些setter方法被Spring框架在JSON反序列化时自动调用
     @Schema(description = "用户注册请求体")
     public static class RegisterRequest {
+        @jakarta.validation.constraints.NotBlank(message = "用户名不能为空")
+        @jakarta.validation.constraints.Size(min = 3, max = 50, message = "用户名长度必须在3到50个字符之间")
         @Schema(description = "用户名，必须唯一", example = "newuser123", requiredMode = Schema.RequiredMode.REQUIRED)
         private String username;
+        
+        @jakarta.validation.constraints.NotBlank(message = "邮箱不能为空")
+        @jakarta.validation.constraints.Email(message = "邮箱格式不正确")
         @Schema(description = "邮箱地址，必须唯一", example = "newuser@example.com", requiredMode = Schema.RequiredMode.REQUIRED)
         private String email;
+        
+        @jakarta.validation.constraints.NotBlank(message = "密码不能为空")
+        @jakarta.validation.constraints.Size(min = 6, max = 100, message = "密码长度必须在6到100个字符之间")
         @Schema(description = "登录密码", example = "Password123!", requiredMode = Schema.RequiredMode.REQUIRED)
         private String password;
+        
+        @jakarta.validation.constraints.Size(max = 100, message = "用户全名不能超过100个字符")
         @Schema(description = "用户全名或昵称", example = "张三")
         private String fullName;
 
@@ -294,8 +416,11 @@ public class UserController {
 
     @Schema(description = "用户信息更新请求体")
     public static class UpdateUserRequest {
+        @jakarta.validation.constraints.Size(max = 100, message = "用户全名不能超过100个字符")
         @Schema(description = "新的用户全名或昵称", example = "李四")
         private String fullName;
+        
+        @jakarta.validation.constraints.Email(message = "邮箱格式不正确")
         @Schema(description = "新的邮箱地址，必须唯一", example = "newemail@example.com")
         private String email;
 
@@ -313,8 +438,12 @@ public class UserController {
 
     @Schema(description = "修改密码请求体")
     public static class ChangePasswordRequest {
+        @jakarta.validation.constraints.NotBlank(message = "旧密码不能为空")
         @Schema(description = "当前使用的旧密码", example = "OldPassword123", requiredMode = Schema.RequiredMode.REQUIRED)
         private String oldPassword;
+        
+        @jakarta.validation.constraints.NotBlank(message = "新密码不能为空")
+        @jakarta.validation.constraints.Size(min = 6, max = 100, message = "密码长度必须在6到100个字符之间")
         @Schema(description = "设置的新密码", example = "NewPassword456!", requiredMode = Schema.RequiredMode.REQUIRED)
         private String newPassword;
 

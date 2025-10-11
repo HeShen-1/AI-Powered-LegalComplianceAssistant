@@ -1,11 +1,32 @@
 server:
   port: 8080
   servlet:
-    context-path: /api
+    context-path: /api/v1
+    encoding:
+      charset: UTF-8
+      force: true
 
 spring:
   application:
     name: legal-assistant
+  
+  # Spring Cache 配置 (由CacheConfig.java管理)
+  cache:
+    type: caffeine
+  
+  # HTTP编码配置
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+  # 多部分文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 50MB      # 单个文件最大大小
+      max-request-size: 200MB  # 整个请求最大大小（支持批量上传）
+      file-size-threshold: 2KB # 超过此大小时写入磁盘
 
   # 数据库配置
   datasource:
@@ -14,31 +35,57 @@ spring:
     password: 123456
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
+      maximum-pool-size: 50          # 增加最大连接数
+      minimum-idle: 10               # 保持更多空闲连接
+      connection-timeout: 30000      # 30秒连接超时
+      idle-timeout: 600000           # 10分钟空闲超时
+      max-lifetime: 1800000          # 30分钟最大生命周期
+      leak-detection-threshold: 180000 # 连接泄漏检测(3分钟)，适应长时间AI操作
+      connection-test-query: SELECT 1  # 连接测试查询
+      validation-timeout: 5000       # 验证超时5秒
+      register-mbeans: true          # 启用JMX监控
 
   # JPA 配置
   jpa:
     hibernate:
       ddl-auto: validate  # 使用 Flyway 管理数据库结构，这里设为 validate
-    show-sql: true
+    show-sql: ${app.database.debug.show-sql:false}
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+        format_sql: ${app.database.debug.format-sql:false}
+        # 显示SQL参数绑定（需要DEBUG级别）
+        show_sql: ${app.database.debug.show-sql:false}
+        use_sql_comments: false
+        # 批量操作优化
+        jdbc:
+          batch_size: 20
+          fetch_size: 20
+        order_inserts: true
+        order_updates: true
+        # SQL优化
+        query:
+          plan_cache_max_size: 2048
 
   # Flyway 数据库迁移配置
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
-    validate-on-migrate: true
+    validate-on-migrate: false  # 暂时禁用验证以解决校验和不匹配问题
+    clean-disabled: false       # 允许清理（仅开发环境）
 
   # Spring AI 配置 - 混合模型架构：本地Ollama + 云端OpenAI
   ai:
+    # 禁用自动配置的聊天记忆，使用自定义配置
+    chat:
+      memory:
+        repository:
+          jdbc:
+            schema-name: public
+            # 禁用自动表创建，使用手动创建的表
+            initialize-schema: never
+    
     # Ollama 配置 - 用于基础AI服务
     ollama:
       base-url: http://localhost:11434
@@ -53,10 +100,10 @@ spring:
         options:
           model: nomic-embed-text  # 用于向量化的模型
     
-    # OpenAI兼容配置 - 用于高级AI服务（DeepSeek API）
-    openai:
-      api-key: ${DEEPSEEK_API_KEY:sk-b1e087d2753d45aaabdfdaaa0a424172}  # 设置环境变量 DEEPSEEK_API_KEY
-      base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}  # DeepSeek API端点
+    # DeepSeek 配置 - 用于高级AI服务
+    deepseek:
+      api-key: ${DEEPSEEK_API_KEY:sk-b1e087d2753d45aaabdfdaaa0a424172}  # 优先使用环境变量
+      base-url: https://api.deepseek.com  # DeepSeek API端点
       chat:
         options:
           model: deepseek-chat  # 高级模型，支持工具调用
@@ -84,45 +131,171 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,env
+        include: health,info,metrics,env,caches,prometheus
   endpoint:
     health:
       show-details: always
+      show-components: always
+    prometheus:
+      enabled: true
+  health:
+    db:
+      enabled: true
+    diskspace:
+      enabled: true
+  metrics:
+    enable:
+      jvm: true
+      system: true
+      hikaricp: true
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+
+# SpringDoc OpenAPI 配置
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  show-actuator: false
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
 
 # Knife4j API 文档配置
 knife4j:
   enable: true
   setting:
     language: zh_cn
+    enable-swagger-models: true
+    enable-document-manage: true
+    swagger-model-name: 实体类列表
   basic:
     enable: false
   production: false
+  cors: true
 
 # 日志配置
 logging:
   level:
-    com.river.legalassistant: DEBUG
-    org.springframework.ai: DEBUG
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    com.river.legalassistant: INFO
+    # 为流式处理调试启用详细日志
+    com.river.legalassistant.service.AgentService: INFO
+    com.river.legalassistant.service.ReportGenerationService: INFO
+    # 减少DeepSeek和LangChain4j日志输出
+    dev.langchain4j: WARN
+    org.springframework.ai: WARN
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
+    # 降低框架日志级别
+    org.springframework: WARN
+    org.hibernate: WARN
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    # 结构化日志格式(便于ELK等日志系统解析)
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg %X{traceId}%n"
+
+# Resilience4j 熔断器配置
+resilience4j:
+  circuitbreaker:
+    instances:
+      aiService:
+        register-health-indicator: true
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        wait-duration-in-open-state: 30s
+        failure-rate-threshold: 50
+        event-consumer-buffer-size: 10
+  timelimiter:
+    instances:
+      aiService:
+        timeout-duration: 300s  # 增加到5分钟，适应合同分析的长时间处理
+  retry:
+    instances:
+      aiService:
+        max-attempts: 3
+        wait-duration: 1s
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+
+# JWT认证配置
+jwt:
+  secret: ${JWT_SECRET:legal-assistant-jwt-secret-key-change-this-in-production-2024-very-long-secret}
+  expiration: 86400000  # 24小时（毫秒）
 
 # 应用自定义配置
 app:
+  # 数据库调试配置
+  database:
+    debug:
+      # 控制是否输出SQL语句到控制台
+      show-sql: ${DB_DEBUG_SHOW_SQL:false}
+      # 控制是否格式化SQL语句
+      format-sql: ${DB_DEBUG_FORMAT_SQL:false}
+      # 控制是否显示SQL参数绑定
+      show-bind-parameters: ${DB_DEBUG_SHOW_PARAMS:false}
+  
   # 文件上传配置
   upload:
-    max-file-size: 10MB
+    max-file-size: 30MB
     allowed-types: pdf,docx,txt,doc,md
     storage-path: ${java.io.tmpdir}/legal-assistant/uploads
   
   # RAG 配置
   rag:
-    chunk-size: 800          # 减小块大小，确保不超过嵌入模型token限制
-    chunk-overlap: 80        # 相应调整重叠大小
-    similarity-threshold: 0.7
-    max-results: 5
+    chunk-size: 2000         # 增加块大小以包含更多上下文
+    chunk-overlap: 400       # 增加重叠大小确保连续性
+    similarity-threshold: 0.5  # 进一步降低阈值获取更多相关文档
+    max-results: 15            # 增加检索结果数量
+  
+  # ETL 配置 - 基于Spring AI TokenTextSplitter
+  etl:
+    chunk-size: 2000       # 增加chunk大小以包含更多上下文
+    chunk-overlap: 400     # 增加重叠以确保连续性
+    min-chunk-size: 50     # 增加最小chunk大小过滤短文本
+    break-on-words: true   # 是否在单词边界切分
+  
+  # 统一文档处理服务配置
+  document-processing:
+    # 启用质量过滤
+    enable-quality-filter: true
+    # 最小片段大小(字符数)
+    min-chunk-size: 50
+    # 支持的文档类型
+    supported-types:
+      - LAW              # 法律法规
+      - REGULATION       # 部门规章
+      - CONTRACT_TEMPLATE # 合同模板
+      - CASE             # 案例判决
+      - GENERAL          # 通用文档
+  
+  # 文档分割器配置
+  splitter:
+    # 法律文档分割器配置
+    legal:
+      max-segment-size: 2000      # 最大片段大小
+      preserve-structure: true     # 保留文档结构
+      enable-chapter-split: true   # 启用章节分割
+      enable-article-split: true   # 启用条文分割
+    
+    # 合同文档分割器配置
+    contract:
+      max-segment-size: 2000      # 最大片段大小
+      context-overlap: 200        # 上下文重叠大小
+      enable-clause-split: true   # 启用条款分割
+      enable-chapter-split: true  # 启用章节分割
+    
+    # 通用递归分割器配置
+    recursive:
+      chunk-size: 800            # 默认块大小
+      chunk-overlap: 80          # 默认重叠大小
   
   # AI 配置 - 混合架构配置
   ai:
@@ -130,10 +303,10 @@ app:
     service-mode:
       # 启用混合模式：本地模型处理基础任务，云端模型处理高级任务
       hybrid-enabled: true
-      # 基础服务提供者：ollama 或 openai
+      # 基础服务提供者：ollama 或 deepseek
       basic-provider: ollama
-      # 高级服务提供者：openai 或 ollama
-      advanced-provider: openai
+      # 高级服务提供者：deepseek 或 ollama
+      advanced-provider: deepseek
       # 自动降级：当高级服务不可用时是否降级到基础服务
       auto-fallback: true
     
@@ -158,6 +331,7 @@ app:
       contract-review: classpath:prompts/contract-review.txt
       legal-qa: classpath:prompts/legal-qa.st
       contract-risk-analysis: classpath:prompts/contract-risk-analysis.st
+      contract-risk-analysis-structured: classpath:prompts/contract-risk-analysis-structured.st
       risk-analysis: classpath:prompts/risk-analysis.txt
 
 ---
@@ -169,11 +343,16 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/legal_assistant_dev
   jpa:
-    show-sql: true
-logging:
-  level:
-    root: INFO
-    com.river.legalassistant: DEBUG
+    show-sql: ${app.database.debug.show-sql:false}
+
+# 开发环境数据库调试配置
+app:
+  database:
+    debug:
+      # 开发环境默认关闭SQL输出，可通过环境变量开启
+      show-sql: ${DB_DEBUG_SHOW_SQL:false}
+      format-sql: ${DB_DEBUG_FORMAT_SQL:false}
+      show-bind-parameters: ${DB_DEBUG_SHOW_PARAMS:false}
 
 ---
 # 生产环境配置
@@ -194,6 +373,26 @@ spring:
 app:
   upload:
     storage-path: ${UPLOAD_PATH:/opt/legal-assistant/uploads}
+  # 自动索引配置
+  auto-index:
+    enabled: true  # 启用应用启动时自动索引
+    law-documents-path: uploads/law  # 法律文档目录路径
+
+  # LangChain4j Advanced RAG 配置
+  langchain4j:
+    retriever:
+      max-results: 20            # 进一步增加检索结果数
+      min-score: 0.5             # 进一步降低分数获取更多相关结果
+      enable-web-search: false
+      enable-case-search: true
+    aggregator:
+      max-results: 15            # 增加最终结果数量
+      similarity-threshold: 0.7  # 进一步降低相似度阈值
+      rrf-k: 60
+    injector:
+      max-content-length: 3500   # 增加内容长度以包含更多信息
+      include-sources: true
+      format-legal-citations: true
 
 logging:
   level:

@@ -1,282 +1,275 @@
 <template>
-  <div class="admin-knowledge-container">
+  <div class="knowledge-container">
     <el-card shadow="never">
       <template #header>
-        <div class="card-header">
-          <div>
-            <h3>知识库管理</h3>
-            <p>管理法律知识库文档，支持批量上传和分类管理</p>
+        <div class="page-header">
+          <div class="header-left">
+            <h3>📚 知识库管理</h3>
+            <p class="header-subtitle">管理法律知识库文档和向量数据</p>
           </div>
-          <div class="header-actions">
-            <el-button @click="showUploadDialog = true">
+          <div class="header-right">
+            <el-button type="primary" @click="showUploadDialog = true">
               <el-icon><Upload /></el-icon>
               上传文档
             </el-button>
-            <el-button type="primary" @click="showBatchUpload = true">
-              <el-icon><FolderAdd /></el-icon>
-              批量上传
+            <el-button type="warning" @click="rebuildIndex">
+              <el-icon><Refresh /></el-icon>
+              重建索引
+            </el-button>
+            <el-button @click="refreshList">
+              <el-icon><Refresh /></el-icon>
+              刷新
             </el-button>
           </div>
         </div>
       </template>
-
+      
       <!-- 统计信息 -->
       <div class="stats-section">
-        <div class="stat-item">
-          <div class="stat-icon">
-            <el-icon><Document /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">{{ stats.totalDocs }}</div>
-            <div class="stat-label">总文档数</div>
-          </div>
-        </div>
-        
-        <div class="stat-item">
-          <div class="stat-icon">
-            <el-icon><Collection /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">{{ stats.totalChunks }}</div>
-            <div class="stat-label">知识片段</div>
-          </div>
-        </div>
-        
-        <div class="stat-item">
-          <div class="stat-icon">
-            <el-icon><Folder /></el-icon>
-          </div>
-          <div class="stat-info">
-            <div class="stat-number">{{ stats.categories }}</div>
-            <div class="stat-label">分类数量</div>
-          </div>
-        </div>
+        <el-row :gutter="20">
+          <el-col :xs="24" :sm="6">
+            <div class="stat-card">
+              <div class="stat-icon documents">
+                <el-icon size="24"><Document /></el-icon>
+              </div>
+              <div class="stat-info">
+                <div class="stat-number">{{ stats.totalDocuments }}</div>
+                <div class="stat-label">总文档数</div>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="24" :sm="6">
+            <div class="stat-card">
+              <div class="stat-icon chunks">
+                <el-icon size="24"><Menu /></el-icon>
+              </div>
+              <div class="stat-info">
+                <div class="stat-number">{{ stats.totalChunks }}</div>
+                <div class="stat-label">向量块数</div>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="24" :sm="6">
+            <div class="stat-card">
+              <div class="stat-icon size">
+                <el-icon size="24"><Folder /></el-icon>
+              </div>
+              <div class="stat-info">
+                <div class="stat-number">{{ formatFileSize(stats.totalSize) }}</div>
+                <div class="stat-label">总大小</div>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="24" :sm="6">
+            <div class="stat-card">
+              <div class="stat-icon updated">
+                <el-icon size="24"><Clock /></el-icon>
+              </div>
+              <div class="stat-info">
+                <div class="stat-number">{{ stats.lastUpdated }}</div>
+                <div class="stat-label">最后更新</div>
+              </div>
+            </div>
+          </el-col>
+        </el-row>
       </div>
-
+      
       <!-- 搜索和筛选 -->
-      <div class="filter-section">
-        <el-form inline>
-          <el-form-item>
+      <div class="search-section">
+        <el-row :gutter="20">
+          <el-col :xs="24" :sm="12" :md="8">
             <el-input
-              v-model="searchKeyword"
+              v-model="searchQuery"
               placeholder="搜索文档名称..."
-              :prefix-icon="Search"
               clearable
               @input="handleSearch"
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="filters.category" placeholder="选择分类" clearable>
-              <el-option label="全部分类" value="" />
-              <el-option
-                v-for="category in categories"
-                :key="category"
-                :label="category"
-                :value="category"
-              />
-            </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-button @click="refreshData" :loading="loading">
-              <el-icon><Refresh /></el-icon>
-              刷新
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </div>
-
-      <!-- 文档表格 -->
-      <el-table
-        :data="documents"
-        :loading="loading"
-        stripe
-        @selection-change="handleSelectionChange"
-      >
-        <el-table-column type="selection" width="55" />
-        
-        <el-table-column prop="filename" label="文档名称" min-width="200">
-          <template #default="{ row }">
-            <div class="doc-info">
-              <el-icon class="doc-icon"><Document /></el-icon>
-              <span class="doc-name">{{ row.filename }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="category" label="分类" width="120">
-          <template #default="{ row }">
-            <el-tag v-if="row.category" type="info" size="small">
-              {{ row.category }}
-            </el-tag>
-            <span v-else class="text-placeholder">未分类</span>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="chunksCount" label="知识片段" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag type="success" size="small">
-              {{ row.chunksCount }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span v-if="row.description">{{ row.description }}</span>
-            <span v-else class="text-placeholder">暂无描述</span>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="uploadedAt" label="上传时间" width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.uploadedAt) }}
-          </template>
-        </el-table-column>
-        
-        <el-table-column label="操作" width="150" fixed="right">
-          <template #default="{ row }">
-            <el-button text type="primary" @click="editDocument(row)">
-              编辑
-            </el-button>
-            <el-popconfirm
-              title="确定删除这个文档吗？"
-              @confirm="deleteDocument(row)"
             >
-              <template #reference>
-                <el-button text type="danger">删除</el-button>
+              <template #prefix>
+                <el-icon><Search /></el-icon>
               </template>
-            </el-popconfirm>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- 分页 -->
-      <div class="pagination-wrapper">
-        <div class="pagination-info">
-          <span>共 {{ total }} 条记录</span>
-          <el-button
-            v-if="selectedDocs.length > 0"
-            type="danger"
-            @click="batchDelete"
-            :loading="batchDeleting"
+            </el-input>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="6">
+            <el-select
+              v-model="categoryFilter"
+              placeholder="分类筛选"
+              clearable
+              @change="handleFilter"
+            >
+              <el-option label="全部" value="" />
+              <el-option label="法律法规" value="law" />
+              <el-option label="合同模板" value="contract" />
+              <el-option label="案例分析" value="case" />
+              <el-option label="其他" value="other" />
+            </el-select>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              :unlink-panels="true"
+              @change="handleFilter"
+            />
+          </el-col>
+        </el-row>
+      </div>
+      
+      <!-- 文档表格 -->
+      <div class="table-section">
+        <el-table
+          ref="tableRef"
+          v-loading="loading"
+          :data="filteredDocuments"
+          stripe
+          @selection-change="handleSelectionChange"
+          @sort-change="handleSortChange"
+        >
+          <el-table-column type="selection" width="55" />
+          
+          <el-table-column prop="filename" label="文档名称" min-width="200">
+            <template #default="{ row }">
+              <div class="document-info">
+                <el-icon class="file-icon" :color="getFileIconColor(row.filename)">
+                  <Document />
+                </el-icon>
+                <div class="document-details">
+                  <div class="filename" :title="row.filename">{{ removeHashPrefix(row.filename) }}</div>
+                  <div class="description" v-if="row.description">{{ row.description }}</div>
+                </div>
+              </div>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="category" label="分类" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="getCategoryType(row.category)" size="small">
+                {{ getCategoryText(row.category) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="chunksCount" label="向量块数" width="120" align="center" sortable="custom">
+            <template #default="{ row }">
+              <span class="chunks-count">{{ row.chunksCount }}</span>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="size" label="文件大小" width="100" align="center" sortable="custom">
+            <template #default="{ row }">
+              {{ formatFileSize(row.size) }}
+            </template>
+          </el-table-column>
+          
+          <el-table-column
+            prop="uploadedAt"
+            label="上传时间"
+            width="160"
+            sortable="custom"
           >
-            批量删除 ({{ selectedDocs.length }})
-          </el-button>
-        </div>
+            <template #default="{ row }">
+              {{ formatDateTime(row.uploadedAt) }}
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="操作" width="250" align="center" fixed="right">
+            <template #default="{ row }">
+              <div class="action-buttons">
+                <el-button
+                  type="primary"
+                  size="small"
+                  @click="viewDocument(row)"
+                >
+                  查看
+                </el-button>
+                <el-button
+                  type="warning"
+                  size="small"
+                  @click="reprocessDocument(row)"
+                >
+                  重新处理
+                </el-button>
+                <el-button
+                  type="danger"
+                  size="small"
+                  @click="deleteDocument(row)"
+                >
+                  删除
+                </el-button>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
         
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.size"
-          :page-sizes="[10, 20, 50]"
-          :total="total"
-          layout="sizes, prev, pager, next, jumper"
-          @size-change="loadDocuments"
-          @current-change="loadDocuments"
-        />
+        <!-- 分页 -->
+        <div class="pagination-section">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :total="total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
       </div>
     </el-card>
-
-    <!-- 单文档上传对话框 -->
-    <el-dialog v-model="showUploadDialog" title="上传文档" width="500px">
-      <el-form :model="uploadForm" label-width="80px">
-        <el-form-item label="文档分类">
-          <el-select
-            v-model="uploadForm.category"
-            placeholder="选择或输入新分类"
-            filterable
-            allow-create
-            style="width: 100%"
-          >
-            <el-option
-              v-for="category in categories"
-              :key="category"
-              :label="category"
-              :value="category"
-            />
+    
+    <!-- 上传文档对话框 -->
+    <el-dialog
+      v-model="showUploadDialog"
+      title="上传知识库文档"
+      width="600px"
+      :close-on-click-modal="false"
+      @open="handleDialogOpen"
+    >
+      <el-form
+        ref="uploadFormRef"
+        :model="uploadForm"
+        :rules="uploadRules"
+        label-width="100px"
+      >
+        <el-form-item label="文档分类" prop="category">
+          <el-select v-model="uploadForm.category" style="width: 100%">
+            <el-option label="法律法规" value="law" />
+            <el-option label="合同模板" value="contract" />
+            <el-option label="案例分析" value="case" />
+            <el-option label="其他" value="other" />
           </el-select>
         </el-form-item>
         
-        <el-form-item label="文档描述">
+        <el-form-item label="文档描述" prop="description">
           <el-input
             v-model="uploadForm.description"
             type="textarea"
             :rows="3"
-            placeholder="请输入文档描述"
+            placeholder="请输入文档描述（可选）"
           />
         </el-form-item>
         
-        <el-form-item label="选择文件">
+        <el-form-item label="文档文件" prop="files">
           <el-upload
             ref="uploadRef"
-            :auto-upload="false"
-            :on-change="handleFileSelect"
-            :before-upload="beforeUpload"
-            accept=".pdf,.docx,.doc,.txt"
+            class="upload-area"
             drag
-          >
-            <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-            <div class="el-upload__text">
-              将文件拖拽到此处，或<em>点击选择文件</em>
-            </div>
-            <template #tip>
-              <div class="el-upload__tip">
-                支持 PDF、Word、文本格式，单个文件不超过 20MB
-              </div>
-            </template>
-          </el-upload>
-        </el-form-item>
-      </el-form>
-      
-      <template #footer>
-        <el-button @click="cancelUpload">取消</el-button>
-        <el-button
-          type="primary"
-          @click="startUpload"
-          :loading="uploading"
-          :disabled="!selectedFile"
-        >
-          开始上传
-        </el-button>
-      </template>
-    </el-dialog>
-
-    <!-- 批量上传对话框 -->
-    <el-dialog v-model="showBatchUpload" title="批量上传" width="600px">
-      <el-form :model="batchUploadForm" label-width="80px">
-        <el-form-item label="统一分类">
-          <el-select
-            v-model="batchUploadForm.category"
-            placeholder="选择或输入新分类"
-            filterable
-            allow-create
-            style="width: 100%"
-          >
-            <el-option
-              v-for="category in categories"
-              :key="category"
-              :label="category"
-              :value="category"
-            />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="选择文件">
-          <el-upload
-            ref="batchUploadRef"
-            :auto-upload="false"
-            :on-change="handleBatchFileSelect"
-            :on-remove="handleBatchFileRemove"
             multiple
-            accept=".pdf,.docx,.doc,.txt"
-            drag
+            :auto-upload="false"
+            :on-change="handleFileChange"
+            :file-list="fileList"
+            accept=".pdf,.doc,.docx,.txt"
           >
             <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
             <div class="el-upload__text">
-              选择多个文件进行批量上传
+              将文件拖拽到此处，或<em>点击上传</em>
             </div>
             <template #tip>
               <div class="el-upload__tip">
-                支持选择多个文件，单个文件不超过 20MB
+                支持 PDF、DOC、DOCX、TXT 格式，单个文件不超过 50MB
               </div>
             </template>
           </el-upload>
@@ -284,548 +277,985 @@
       </el-form>
       
       <!-- 上传进度 -->
-      <div v-if="batchProgress.total > 0" class="batch-progress">
+      <div v-if="uploadProgress.length > 0" class="upload-progress">
         <h4>上传进度</h4>
-        <el-progress
-          :percentage="Math.round((batchProgress.completed / batchProgress.total) * 100)"
-          :status="batchProgress.completed === batchProgress.total ? 'success' : undefined"
-        />
-        <p>{{ batchProgress.completed }}/{{ batchProgress.total }} 个文件已完成</p>
+        <div
+          v-for="(progress, index) in uploadProgress"
+          :key="index"
+          class="progress-item"
+        >
+          <div class="progress-info">
+            <span class="filename">{{ progress.filename }}</span>
+            <span class="percentage">{{ progress.percentage }}%</span>
+          </div>
+          <el-progress :percentage="progress.percentage" :status="progress.status" />
+        </div>
       </div>
       
       <template #footer>
-        <el-button @click="cancelBatchUpload">取消</el-button>
-        <el-button
-          type="primary"
-          @click="startBatchUpload"
-          :loading="batchUploading"
-          :disabled="selectedFiles.length === 0"
-        >
-          开始批量上传
+        <el-button @click="showUploadDialog = false">取消</el-button>
+        <el-button type="primary" :loading="uploadLoading" @click="handleUploadSubmit">
+          开始上传
         </el-button>
       </template>
     </el-dialog>
-
-    <!-- 编辑文档对话框 -->
-    <el-dialog v-model="showEditDialog" title="编辑文档" width="500px">
-      <el-form :model="editForm" label-width="80px">
-        <el-form-item label="文档名称">
-          <el-input v-model="editForm.filename" disabled />
-        </el-form-item>
+    
+    <!-- 文档查看对话框 -->
+    <el-dialog
+      v-model="showViewDialog"
+      :title="`文档详情 - ${selectedDocument?.filename}`"
+      width="80%"
+      :close-on-click-modal="false"
+    >
+      <div v-if="selectedDocument" class="document-content">
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="文档名称">
+            {{ selectedDocument.filename }}
+          </el-descriptions-item>
+          <el-descriptions-item label="分类">
+            <el-tag :type="getCategoryType(selectedDocument.category)" size="small">
+              {{ getCategoryText(selectedDocument.category) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="文件大小">
+            {{ formatFileSize(selectedDocument.size) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="向量块数">
+            {{ selectedDocument.chunksCount }}
+          </el-descriptions-item>
+          <el-descriptions-item label="上传时间">
+            {{ formatDateTime(selectedDocument.uploadedAt) }}
+          </el-descriptions-item>
+          <el-descriptions-item label="文档ID">
+            {{ selectedDocument.id }}
+          </el-descriptions-item>
+          <el-descriptions-item label="描述" span="2">
+            {{ selectedDocument.description || '无描述' }}
+          </el-descriptions-item>
+        </el-descriptions>
         
-        <el-form-item label="文档分类">
-          <el-select
-            v-model="editForm.category"
-            placeholder="选择或输入新分类"
-            filterable
-            allow-create
-            style="width: 100%"
+        <!-- 向量块信息 -->
+        <div class="chunks-section">
+          <div class="chunks-header">
+            <h4>向量块信息</h4>
+            <el-tag v-if="documentChunks.length > 0" type="info" size="small">
+              共 {{ documentChunks.length }} 个向量块
+            </el-tag>
+          </div>
+          
+          <div v-if="documentChunks.length === 0" class="empty-chunks">
+            <el-empty description="暂无向量块数据" />
+          </div>
+          
+          <el-table 
+            v-else 
+            :data="documentChunks" 
+            stripe 
+            max-height="400"
+            style="margin-top: 10px"
           >
-            <el-option
-              v-for="category in categories"
-              :key="category"
-              :label="category"
-              :value="category"
-            />
-          </el-select>
-        </el-form-item>
-        
-        <el-form-item label="文档描述">
-          <el-input
-            v-model="editForm.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入文档描述"
-          />
-        </el-form-item>
-      </el-form>
+            <el-table-column prop="index" label="序号" width="80" align="center" />
+            <el-table-column prop="content" label="内容预览" min-width="350">
+              <template #default="{ row }">
+                <div class="chunk-content" :title="row.content">
+                  {{ row.content.length > 150 ? row.content.substring(0, 150) + '...' : row.content }}
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column prop="tokens" label="Token数" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag type="success" size="small">{{ row.tokens }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="内容长度" width="100" align="center">
+              <template #default="{ row }">
+                <span class="text-gray">{{ row.content.length }}</span>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </div>
       
       <template #footer>
-        <el-button @click="showEditDialog = false">取消</el-button>
-        <el-button type="primary" @click="saveEdit" :loading="saving">
-          保存
-        </el-button>
+        <el-button @click="showViewDialog = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import type { UploadInstance, UploadRawFile } from 'element-plus'
-import type { KnowledgeDocument } from '@/types/api'
-import {
-  uploadDocumentApi,
-  batchUploadDocumentsApi,
-  getDocumentsApi,
-  deleteDocumentApi
-} from '@/api/knowledgeBaseService'
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadInstance } from 'element-plus'
 import {
   Upload,
-  FolderAdd,
-  Document,
-  Collection,
-  Folder,
-  Search,
   Refresh,
+  Search,
+  Document,
+  Menu,
+  Folder,
+  Clock,
+  Delete,
   UploadFilled
 } from '@element-plus/icons-vue'
+import { useUserStore } from '@/store/modules/user'
+import type { KnowledgeDocument } from '@/types/api'
+import { getDocumentsApi, deleteDocumentApi, rebuildIndexApi, reprocessDocumentApi, getDocumentChunksApi } from '@/api/knowledgeBaseService'
 
-// 组件状态
+// 类型定义
+interface DocumentStats {
+  totalDocuments: number
+  totalChunks: number
+  totalSize: number
+  lastUpdated: string
+}
+
+interface UploadProgress {
+  filename: string
+  percentage: number
+  status: 'success' | 'exception' | 'warning' | ''
+}
+
+interface DocumentChunk {
+  index: number
+  content: string
+  tokens: number
+  similarity: number
+}
+
+const userStore = useUserStore()
+
+// 响应式数据
 const loading = ref(false)
-const uploading = ref(false)
-const batchUploading = ref(false)
-const saving = ref(false)
-const batchDeleting = ref(false)
+const documentList = ref<KnowledgeDocument[]>([])
+const selectedRows = ref<KnowledgeDocument[]>([])
+const searchQuery = ref('')
+const categoryFilter = ref('')
+const dateRange = ref<[string, string] | null>(null)
+const currentPage = ref(1)
+const pageSize = ref(20)
+const total = ref(0)
+const sortField = ref('')
+const sortOrder = ref('')
 
 const showUploadDialog = ref(false)
-const showBatchUpload = ref(false)
-const showEditDialog = ref(false)
+const showViewDialog = ref(false)
+const uploadLoading = ref(false)
+const selectedDocument = ref<KnowledgeDocument | null>(null)
+const documentChunks = ref<DocumentChunk[]>([])
 
+const uploadFormRef = ref<FormInstance>()
 const uploadRef = ref<UploadInstance>()
-const batchUploadRef = ref<UploadInstance>()
+const tableRef = ref()
 
-// 搜索和筛选
-const searchKeyword = ref('')
-const filters = reactive({
-  category: ''
-})
-
-// 分页
-const pagination = reactive({
-  page: 1,
-  size: 10
-})
-
-// 数据
-const documents = ref<KnowledgeDocument[]>([])
-const total = ref(0)
-const selectedDocs = ref<KnowledgeDocument[]>([])
-const selectedFile = ref<File | null>(null)
-const selectedFiles = ref<File[]>([])
-const categories = ref<string[]>(['法律法规', '合同模板', '案例分析', '司法解释'])
-
-// 统计信息
-const stats = reactive({
-  totalDocs: 0,
+const stats = ref<DocumentStats>({
+  totalDocuments: 0,
   totalChunks: 0,
-  categories: 0
+  totalSize: 0,
+  lastUpdated: ''
 })
 
-// 表单数据
-const uploadForm = reactive({
-  category: '',
+const uploadForm = ref({
+  category: 'law',
   description: ''
 })
 
-const batchUploadForm = reactive({
-  category: ''
+const fileList = ref([])
+const uploadProgress = ref<UploadProgress[]>([])
+
+// 计算属性
+const uploadAction = computed(() => '/api/v1/knowledge-base/documents/upload-single')
+
+const uploadHeaders = computed(() => ({
+  'Authorization': `Bearer ${userStore.token}`
+}))
+
+const filteredDocuments = computed(() => {
+  let list = [...documentList.value]
+  
+  // 搜索过滤
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    list = list.filter(doc => 
+      doc.filename.toLowerCase().includes(query) ||
+      (doc.description && doc.description.toLowerCase().includes(query))
+    )
+  }
+  
+  // 分类过滤
+  if (categoryFilter.value) {
+    list = list.filter(doc => doc.category === categoryFilter.value)
+  }
+  
+  // 日期范围过滤
+  if (dateRange.value && dateRange.value.length === 2) {
+    const [startDate, endDate] = dateRange.value
+    list = list.filter(doc => {
+      const docDate = doc.uploadedAt.split('T')[0]
+      return docDate >= startDate && docDate <= endDate
+    })
+  }
+  
+  // 排序
+  if (sortField.value) {
+    list.sort((a, b) => {
+      const aVal = a[sortField.value as keyof KnowledgeDocument]
+      const bVal = b[sortField.value as keyof KnowledgeDocument]
+      
+      if (sortOrder.value === 'ascending') {
+        return aVal > bVal ? 1 : -1
+      } else {
+        return aVal < bVal ? 1 : -1
+      }
+    })
+  }
+  
+  return list
 })
 
-const editForm = reactive({
-  id: '',
-  filename: '',
-  category: '',
-  description: ''
-})
+// 表单验证规则
+const uploadRules: FormRules = {
+  category: [
+    { required: true, message: '请选择文档分类', trigger: 'change' }
+  ]
+}
 
-// 批量上传进度
-const batchProgress = reactive({
-  total: 0,
-  completed: 0
-})
+// 工具函数
+const formatDateTime = (dateStr: string) => {
+  return new Date(dateStr).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
 
-// 加载文档列表
-const loadDocuments = async () => {
+// 移除文件名中的哈希值前缀
+const removeHashPrefix = (filename: string) => {
+  // 匹配 64位十六进制哈希值_ 的模式
+  const hashPattern = /^[a-f0-9]{64}_/
+  return filename.replace(hashPattern, '')
+}
+
+const formatFileSize = (bytes: number) => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+const getFileIconColor = (filename: string) => {
+  const ext = filename.split('.').pop()?.toLowerCase()
+  const colorMap: Record<string, string> = {
+    pdf: '#ff4757',
+    doc: '#3742fa',
+    docx: '#3742fa',
+    txt: '#2ed573'
+  }
+  return colorMap[ext || ''] || '#747d8c'
+}
+
+const getCategoryType = (category: string) => {
+  const typeMap: Record<string, string> = {
+    law: 'danger',
+    contract: 'primary',
+    case: 'warning',
+    other: 'info'
+  }
+  return typeMap[category] || 'info'
+}
+
+const getCategoryText = (category: string) => {
+  const textMap: Record<string, string> = {
+    law: '法律法规',
+    contract: '合同模板',
+    case: '案例分析',
+    other: '其他'
+  }
+  return textMap[category] || category
+}
+
+// 数据获取
+const fetchDocumentList = async () => {
   loading.value = true
   try {
-    const params = {
-      page: pagination.page - 1,
-      size: pagination.size,
-      category: filters.category,
-      keyword: searchKeyword.value
-    }
-
-    const response = await getDocumentsApi(params)
-    if (response.data.success) {
-      documents.value = response.data.data
-      total.value = response.data.totalElements
+    // 调用真实API获取文档列表
+    const response = await getDocumentsApi({
+      page: currentPage.value - 1, // 后端页码从0开始
+      size: pageSize.value,
+      category: categoryFilter.value || undefined
+    })
+    
+    if (response.data && response.data.data) {
+      documentList.value = response.data.data.content || []
+      total.value = response.data.data.totalElements || 0
       
       // 更新统计信息
-      stats.totalDocs = total.value
-      stats.totalChunks = documents.value.reduce((sum, doc) => sum + doc.chunksCount, 0)
-      stats.categories = new Set(documents.value.map(doc => doc.category).filter(Boolean)).size
+      stats.value = {
+        totalDocuments: total.value,
+        totalChunks: documentList.value.reduce((sum, doc) => sum + (doc.chunksCount || 0), 0),
+        totalSize: documentList.value.reduce((sum, doc) => sum + (doc.size || 0), 0),
+        lastUpdated: documentList.value.length > 0 
+          ? new Date().toLocaleDateString('zh-CN') 
+          : '-'
+      }
+    } else {
+      documentList.value = []
+      total.value = 0
+      stats.value = {
+        totalDocuments: 0,
+        totalChunks: 0,
+        totalSize: 0,
+        lastUpdated: '-'
+      }
     }
   } catch (error) {
-    ElMessage.error('加载文档列表失败')
+    console.error('Failed to fetch document list:', error)
+    documentList.value = []
+    total.value = 0
+    stats.value = {
+      totalDocuments: 0,
+      totalChunks: 0,
+      totalSize: 0,
+      lastUpdated: '-'
+    }
   } finally {
     loading.value = false
   }
 }
 
-// 搜索处理
+// 事件处理
+const refreshList = () => {
+  fetchDocumentList()
+}
+
 const handleSearch = () => {
-  pagination.page = 1
-  loadDocuments()
+  // 搜索逻辑在计算属性中处理
 }
 
-// 刷新数据
-const refreshData = () => {
-  loadDocuments()
+const handleFilter = () => {
+  // 重新从后端获取数据，应用分类筛选
+  currentPage.value = 1
+  fetchDocumentList()
 }
 
-// 选择变化处理
-const handleSelectionChange = (docs: KnowledgeDocument[]) => {
-  selectedDocs.value = docs
+const handleSortChange = ({ prop, order }: { prop: string; order: string }) => {
+  sortField.value = prop
+  sortOrder.value = order
 }
 
-// 文件选择处理
-const handleFileSelect = (file: any) => {
-  selectedFile.value = file.raw
+const handleSizeChange = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchDocumentList()
 }
 
-const handleBatchFileSelect = (file: any) => {
-  selectedFiles.value.push(file.raw)
+const handleCurrentChange = (page: number) => {
+  currentPage.value = page
+  fetchDocumentList()
 }
 
-const handleBatchFileRemove = (file: any) => {
-  const index = selectedFiles.value.findIndex(f => f.name === file.name)
-  if (index > -1) {
-    selectedFiles.value.splice(index, 1)
-  }
+const handleSelectionChange = (selection: KnowledgeDocument[]) => {
+  selectedRows.value = selection
 }
 
-// 文件上传前验证
-const beforeUpload = (file: UploadRawFile) => {
-  const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'text/plain']
-  const isValidType = validTypes.includes(file.type)
-  const isValidSize = file.size / 1024 / 1024 < 20
-
-  if (!isValidType) {
-    ElMessage.error('只支持 PDF、Word、文本格式的文件')
-    return false
-  }
-
-  if (!isValidSize) {
-    ElMessage.error('文件大小不能超过 20MB')
-    return false
-  }
-
-  return false // 阻止自动上传
-}
-
-// 开始单文档上传
-const startUpload = async () => {
-  if (!selectedFile.value) return
-
-  uploading.value = true
+const viewDocument = async (document: KnowledgeDocument) => {
+  selectedDocument.value = document
+  
+  // 清空之前的块信息
+  documentChunks.value = []
+  
+  // 显示对话框
+  showViewDialog.value = true
+  
+  // 加载文档的向量块信息
+  loading.value = true
   try {
-    const response = await uploadDocumentApi(
-      selectedFile.value,
-      uploadForm.category,
-      uploadForm.description
-    )
-
-    if (response.data.success) {
-      ElMessage.success('文档上传成功')
-      showUploadDialog.value = false
-      loadDocuments()
+    const response = await getDocumentChunksApi(document.id)
+    
+    if (response.data && response.data.success && response.data.data) {
+      // 转换为前端需要的格式
+      documentChunks.value = response.data.data.map((chunk: any) => ({
+        index: chunk.index + 1, // 前端从1开始显示
+        content: chunk.content,
+        tokens: chunk.tokens,
+        similarity: chunk.similarity || 1.0
+      }))
+      
+      ElMessage.success(`成功加载 ${documentChunks.value.length} 个向量块`)
+    } else {
+      ElMessage.warning('未能获取文档向量块信息')
     }
-  } catch (error) {
-    ElMessage.error('文档上传失败')
+  } catch (error: any) {
+    console.error('Failed to fetch document chunks:', error)
+    const errorMessage = error.response?.data?.message || error.message || '获取文档向量块失败'
+    ElMessage.error(errorMessage)
   } finally {
-    uploading.value = false
+    loading.value = false
   }
 }
 
-// 取消上传
-const cancelUpload = () => {
-  showUploadDialog.value = false
-  selectedFile.value = null
-  uploadForm.category = ''
-  uploadForm.description = ''
-  uploadRef.value?.clearFiles()
-}
-
-// 开始批量上传
-const startBatchUpload = async () => {
-  if (selectedFiles.value.length === 0) return
-
-  batchUploading.value = true
-  batchProgress.total = selectedFiles.value.length
-  batchProgress.completed = 0
-
-  try {
-    const response = await batchUploadDocumentsApi(
-      selectedFiles.value,
-      batchUploadForm.category
-    )
-
-    if (response.data.success) {
-      batchProgress.completed = response.data.successCount
-      ElMessage.success(`批量上传完成，成功 ${response.data.successCount} 个文件`)
-      showBatchUpload.value = false
-      loadDocuments()
-    }
-  } catch (error) {
-    ElMessage.error('批量上传失败')
-  } finally {
-    batchUploading.value = false
-  }
-}
-
-// 取消批量上传
-const cancelBatchUpload = () => {
-  showBatchUpload.value = false
-  selectedFiles.value = []
-  batchUploadForm.category = ''
-  batchProgress.total = 0
-  batchProgress.completed = 0
-  batchUploadRef.value?.clearFiles()
-}
-
-// 编辑文档
-const editDocument = (doc: KnowledgeDocument) => {
-  Object.assign(editForm, {
-    id: doc.id,
-    filename: doc.filename,
-    category: doc.category || '',
-    description: doc.description || ''
-  })
-  showEditDialog.value = true
-}
-
-// 保存编辑
-const saveEdit = async () => {
-  saving.value = true
-  try {
-    // 这里应该调用更新文档信息的API
-    ElMessage.success('文档信息更新成功')
-    showEditDialog.value = false
-    loadDocuments()
-  } catch (error) {
-    ElMessage.error('更新失败')
-  } finally {
-    saving.value = false
-  }
-}
-
-// 删除文档
-const deleteDocument = async (doc: KnowledgeDocument) => {
-  try {
-    await deleteDocumentApi(doc.id)
-    ElMessage.success('文档删除成功')
-    loadDocuments()
-  } catch (error) {
-    ElMessage.error('删除失败')
-  }
-}
-
-// 批量删除
-const batchDelete = async () => {
+const reprocessDocument = async (doc: KnowledgeDocument) => {
   try {
     await ElMessageBox.confirm(
-      `确定要删除选中的 ${selectedDocs.value.length} 个文档吗？`,
-      '批量删除',
-      { type: 'warning' }
+      `确定要重新处理文档"${removeHashPrefix(doc.filename)}"吗？这将重新生成向量索引。`,
+      '重新处理确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
     )
-
-    batchDeleting.value = true
     
-    // 这里应该调用批量删除API
-    for (const doc of selectedDocs.value) {
-      await deleteDocumentApi(doc.id)
+    loading.value = true
+    try {
+      const response = await reprocessDocumentApi(doc.id)
+      
+      if (response.data && response.data.success) {
+        ElMessage.success({
+          message: '文档重新处理任务已启动，请稍后刷新查看结果',
+          duration: 3000
+        })
+        // 刷新列表
+        setTimeout(() => {
+          fetchDocumentList()
+        }, 2000)
+      } else {
+        ElMessage.error(response.data?.message || '重新处理文档失败')
+      }
+    } catch (error: any) {
+      console.error('Failed to reprocess document:', error)
+      const errorMessage = error.response?.data?.message || error.message || '重新处理文档失败'
+      ElMessage.error(errorMessage)
+    } finally {
+      loading.value = false
     }
-    
-    ElMessage.success('批量删除成功')
-    loadDocuments()
   } catch {
-    // 用户取消
-  } finally {
-    batchDeleting.value = false
+    // 用户取消操作
   }
 }
 
-// 辅助函数
-const formatDateTime = (timestamp: string) => {
-  return new Date(timestamp).toLocaleString('zh-CN')
+const deleteDocument = async (doc: KnowledgeDocument) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除文档"${removeHashPrefix(doc.filename)}"吗？此操作不可恢复。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    // 调用真实API删除文档
+    const response = await deleteDocumentApi(doc.id)
+    
+    if (response.data && response.data.success) {
+      ElMessage.success('文档删除成功')
+      // 刷新列表
+      await fetchDocumentList()
+    } else {
+      ElMessage.error(response.data?.message || '删除文档失败')
+    }
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('Failed to delete document:', error)
+      const errorMessage = error.response?.data?.message || error.message || '删除文档失败'
+      ElMessage.error(errorMessage)
+    }
+  }
 }
 
-// 组件挂载时加载数据
+const batchDelete = async () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请先选择要删除的文档')
+    return
+  }
+  
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除选中的 ${selectedRows.value.length} 个文档吗？此操作不可恢复。`,
+      '批量删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    // 调用真实API批量删除文档
+    const deletePromises = selectedRows.value.map(doc => deleteDocumentApi(doc.id))
+    const results = await Promise.allSettled(deletePromises)
+    
+    // 统计成功和失败的数量
+    const successCount = results.filter(r => r.status === 'fulfilled').length
+    const failedCount = results.filter(r => r.status === 'rejected').length
+    
+    // 清空选择
+    tableRef.value?.clearSelection()
+    
+    if (failedCount === 0) {
+      ElMessage.success(`成功删除 ${successCount} 个文档`)
+    } else {
+      ElMessage.warning(`删除完成：成功 ${successCount} 个，失败 ${failedCount} 个`)
+    }
+    
+    // 刷新列表
+    await fetchDocumentList()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('Failed to batch delete documents:', error)
+      ElMessage.error('批量删除失败')
+    }
+  }
+}
+
+const rebuildIndex = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要重建知识库索引吗？这将重新处理所有文档的向量索引，可能需要较长时间。',
+      '重建索引确认',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    loading.value = true
+    try {
+      const response = await rebuildIndexApi()
+      
+      if (response.data && response.data.success) {
+        ElMessage.success({
+          message: '知识库索引重建任务已启动，请稍后查看结果',
+          duration: 3000
+        })
+      } else {
+        ElMessage.error(response.data?.message || '启动索引重建任务失败')
+      }
+    } catch (error: any) {
+      console.error('Failed to rebuild index:', error)
+      const errorMessage = error.response?.data?.message || error.message || '启动索引重建任务失败'
+      ElMessage.error(errorMessage)
+    } finally {
+      loading.value = false
+    }
+  } catch {
+    // 用户取消操作
+  }
+}
+
+// 打开上传对话框时的处理
+const handleDialogOpen = () => {
+  // 清空上次的文件列表和进度
+  fileList.value = []
+  uploadProgress.value = []
+  // 重置表单
+  uploadForm.value = {
+    category: 'law',
+    description: ''
+  }
+  uploadFormRef.value?.clearValidate()
+}
+
+// 上传相关函数
+const handleFileChange = (file: any, fileListParam: any) => {
+  // 验证文件
+  const isValidType = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'].includes(file.raw.type)
+  const isLt50M = file.raw.size / 1024 / 1024 < 50
+
+  if (!isValidType) {
+    ElMessage.error('只支持 PDF、DOC、DOCX、TXT 格式的文件!')
+    uploadRef.value?.handleRemove(file)
+    return false
+  }
+  if (!isLt50M) {
+    ElMessage.error('文件大小不能超过 50MB!')
+    uploadRef.value?.handleRemove(file)
+    return false
+  }
+  
+  fileList.value = fileListParam
+}
+
+const handleUploadSubmit = async () => {
+  if (!uploadFormRef.value) return
+  
+  try {
+    await uploadFormRef.value.validate()
+    
+    if (fileList.value.length === 0) {
+      ElMessage.warning('请选择要上传的文件')
+      return
+    }
+    
+    uploadLoading.value = true
+    uploadProgress.value = []
+    
+    // 手动上传每个文件
+    const uploadPromises = fileList.value.map(async (fileItem: any) => {
+      const formData = new FormData()
+      formData.append('file', fileItem.raw)
+      formData.append('category', uploadForm.value.category)
+      if (uploadForm.value.description) {
+        formData.append('description', uploadForm.value.description)
+      }
+      
+      // 添加进度跟踪
+      uploadProgress.value.push({
+        filename: fileItem.name,
+        percentage: 0,
+        status: ''
+      })
+      
+      try {
+        const response = await fetch(uploadAction.value, {
+          method: 'POST',
+          headers: {
+            'Authorization': uploadHeaders.value.Authorization
+          },
+          body: formData
+        })
+        
+        const result = await response.json()
+        
+        // 更新进度
+        const progressIndex = uploadProgress.value.findIndex(p => p.filename === fileItem.name)
+        if (progressIndex > -1) {
+          uploadProgress.value[progressIndex].percentage = 100
+          uploadProgress.value[progressIndex].status = result.success ? 'success' : 'exception'
+        }
+        
+        if (result.success) {
+          ElMessage.success(`文档 ${fileItem.name} 上传成功`)
+          return { success: true, filename: fileItem.name }
+        } else {
+          ElMessage.error(`文档 ${fileItem.name} 上传失败: ${result.message}`)
+          return { success: false, filename: fileItem.name }
+        }
+      } catch (error: any) {
+        // 更新进度为失败
+        const progressIndex = uploadProgress.value.findIndex(p => p.filename === fileItem.name)
+        if (progressIndex > -1) {
+          uploadProgress.value[progressIndex].status = 'exception'
+        }
+        
+        ElMessage.error(`文档 ${fileItem.name} 上传失败`)
+        return { success: false, filename: fileItem.name }
+      }
+    })
+    
+    // 等待所有上传完成
+    const results = await Promise.all(uploadPromises)
+    const successCount = results.filter(r => r.success).length
+    const failedCount = results.filter(r => !r.success).length
+    
+    uploadLoading.value = false
+    
+    if (failedCount === 0) {
+      ElMessage.success(`所有文档上传成功，共 ${successCount} 个`)
+      // 关闭对话框
+      showUploadDialog.value = false
+      
+      // 重置表单
+      uploadForm.value = {
+        category: 'law',
+        description: ''
+      }
+      fileList.value = []
+      uploadProgress.value = []
+      
+      // 刷新列表
+      refreshList()
+    } else {
+      ElMessage.warning(`上传完成：成功 ${successCount} 个，失败 ${failedCount} 个`)
+    }
+  } catch (error) {
+    console.error('Upload failed:', error)
+    uploadLoading.value = false
+    ElMessage.error('上传失败')
+  }
+}
+
+// 组件挂载时获取数据
 onMounted(() => {
-  loadDocuments()
+  fetchDocumentList()
 })
 </script>
 
 <style scoped>
-.admin-knowledge-container {
+.knowledge-container {
   max-width: 1200px;
   margin: 0 auto;
 }
 
-.card-header {
+.page-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: flex-start;
 }
 
-.card-header h3 {
-  margin: 0 0 4px 0;
-  color: var(--text-primary);
+.header-left h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #2c3e50;
 }
 
-.card-header p {
+.header-subtitle {
   margin: 0;
-  color: var(--text-secondary);
+  color: #7f8c8d;
   font-size: 14px;
 }
 
-.header-actions {
+.header-right {
   display: flex;
   gap: 12px;
 }
 
 .stats-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 20px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
-.stat-item {
+.stat-card {
   display: flex;
   align-items: center;
-  gap: 16px;
   padding: 20px;
-  border: 1px solid var(--border-light);
+  background-color: #f8f9fa;
   border-radius: 8px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  height: 100px;
 }
 
 .stat-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 8px;
-  background: var(--primary-color);
-  color: white;
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  margin-right: 16px;
+}
+
+.stat-icon.documents {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.stat-icon.chunks {
+  background-color: #e8f5e8;
+  color: #388e3c;
+}
+
+.stat-icon.size {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.stat-icon.updated {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.stat-info {
+  flex: 1;
 }
 
 .stat-number {
   font-size: 24px;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1;
+  font-weight: bold;
+  color: #2c3e50;
+  margin-bottom: 4px;
 }
 
 .stat-label {
+  color: #7f8c8d;
   font-size: 14px;
-  color: var(--text-secondary);
-  margin-top: 4px;
 }
 
-.filter-section {
+.search-section {
   margin-bottom: 20px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
 }
 
-.doc-info {
+.table-section {
+  margin-top: 20px;
+}
+
+.document-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
-.doc-icon {
-  color: var(--primary-color);
+.file-icon {
+  font-size: 20px;
 }
 
-.doc-name {
+.document-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.filename {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.description {
+  font-size: 12px;
+  color: #7f8c8d;
+  margin-top: 2px;
+}
+
+.pagination-section {
+  margin-top: 20px;
+  text-align: right;
+}
+
+.upload-area {
+  width: 100%;
+}
+
+.upload-progress {
+  margin-top: 20px;
+}
+
+.upload-progress h4 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
+}
+
+.progress-item {
+  margin-bottom: 15px;
+}
+
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.progress-info .filename {
   font-weight: 500;
 }
 
-.text-placeholder {
-  color: var(--text-placeholder);
+.progress-info .percentage {
+  color: #409EFF;
 }
 
-.pagination-wrapper {
+.document-content {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.chunks-section {
+  margin-top: 30px;
+}
+
+.chunks-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--border-lighter);
-}
-
-.pagination-info {
-  display: flex;
   align-items: center;
-  gap: 16px;
+  margin-bottom: 15px;
 }
 
-.batch-progress {
-  margin-top: 20px;
-  padding: 16px;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  background: #f8f9fa;
+.chunks-section h4 {
+  margin: 0;
+  color: #2c3e50;
 }
 
-.batch-progress h4 {
-  margin: 0 0 12px 0;
-  color: var(--text-primary);
+.empty-chunks {
+  padding: 40px 0;
+  text-align: center;
 }
 
-.batch-progress p {
-  margin: 8px 0 0 0;
-  color: var(--text-regular);
-  font-size: 14px;
+.chunk-content {
+  line-height: 1.6;
+  color: #5a6c7d;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-@media (max-width: 1024px) {
-  .card-header {
+.text-gray {
+  color: #909399;
+  font-size: 13px;
+}
+
+.chunks-count {
+  font-weight: 500;
+  color: #409EFF;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.action-buttons .el-button {
+  margin: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .header-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  
+  .stats-section .el-col {
+    margin-bottom: 15px;
+  }
+  
+  .stat-card {
+    padding: 15px;
+    height: 80px;
+  }
+  
+  .stat-number {
+    font-size: 20px;
+  }
+  
+  .search-section .el-row {
+    gap: 15px;
+  }
+  
+  .search-section .el-col {
+    margin-bottom: 15px;
+  }
+  
+  .pagination-section {
+    text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-section {
+    padding: 15px;
+  }
+  
+  .header-right .el-button {
+    flex: 1;
+    font-size: 12px;
+  }
+  
+  .document-info {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
-  }
-
-  .header-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-}
-
-@media (max-width: 768px) {
-  .filter-section .el-form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-
-  .filter-section .el-form-item {
-    margin-bottom: 0;
-  }
-
-  .pagination-wrapper {
-    flex-direction: column;
-    gap: 16px;
-    align-items: stretch;
-  }
-
-  .el-pagination {
-    justify-content: center;
-  }
-
-  .header-actions {
-    flex-direction: column;
     gap: 8px;
   }
-
-  .stats-section {
-    grid-template-columns: 1fr;
-    gap: 16px;
+  
+  .el-table :deep(.el-table__cell) {
+    padding: 8px 4px;
   }
 }
 </style>

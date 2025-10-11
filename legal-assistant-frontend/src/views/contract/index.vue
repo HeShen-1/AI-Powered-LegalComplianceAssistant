@@ -1,17 +1,11 @@
 <template>
-  <div class="contract-review-container">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <h2>合同智能审查</h2>
-      <p>上传合同文件，AI将为您提供专业的风险分析和合规建议</p>
-    </div>
-
+  <div class="contract-container">
     <!-- 上传区域 -->
-    <el-card class="upload-section" shadow="never" v-if="!currentReview">
+    <el-card v-if="!currentReview" class="upload-card" shadow="never">
       <template #header>
-        <div class="section-header">
-          <el-icon><Upload /></el-icon>
-          <span>上传合同文件</span>
+        <div class="card-header">
+          <h3>📄 合同审查</h3>
+          <p class="card-subtitle">上传合同文件，AI将为您进行全面的法律风险分析</p>
         </div>
       </template>
 
@@ -19,743 +13,1217 @@
         ref="uploadRef"
         class="upload-dragger"
         drag
-        :auto-upload="false"
-        :on-change="handleFileSelect"
-        :on-remove="handleFileRemove"
+        :action="uploadAction"
+        :headers="uploadHeaders"
         :before-upload="beforeUpload"
-        accept=".pdf,.docx,.doc,.txt"
-        :limit="1"
+        :on-success="handleUploadSuccess"
+        :on-error="handleUploadError"
+        :show-file-list="false"
+        accept=".pdf,.doc,.docx"
       >
         <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
         <div class="el-upload__text">
-          将合同文件拖拽到此处，或<em>点击选择文件</em>
+          将合同文件拖拽到此处，或<em>点击上传</em>
         </div>
         <template #tip>
           <div class="el-upload__tip">
-            支持 PDF、Word (.docx/.doc)、文本 (.txt) 格式，单个文件不超过 10MB
+            支持 PDF、DOC、DOCX 格式，文件大小不超过 10MB
           </div>
         </template>
       </el-upload>
 
-      <div v-if="selectedFile" class="selected-file">
-        <div class="file-info">
-          <el-icon><Document /></el-icon>
-          <span class="file-name">{{ selectedFile.name }}</span>
-          <span class="file-size">({{ formatFileSize(selectedFile.size) }})</span>
-        </div>
-        
-        <el-button
-          type="primary"
-          size="large"
-          :loading="uploading"
-          @click="startUpload"
-          :disabled="!selectedFile"
-        >
-          <el-icon><Upload /></el-icon>
-          {{ uploading ? '上传中...' : '开始审查' }}
-        </el-button>
+      <!-- 上传进度 -->
+      <div v-if="uploadProgress > 0 && uploadProgress < 100" class="upload-progress">
+        <el-progress :percentage="uploadProgress" :show-text="true" />
+        <p class="progress-text">正在上传文件...</p>
       </div>
     </el-card>
 
-    <!-- 审查进度区域 -->
-    <el-card v-if="currentReview" class="review-section" shadow="never">
+    <!-- 分析进度区域 -->
+    <el-card v-if="currentReview && analysisStatus !== 'completed'" class="analysis-card" shadow="never">
       <template #header>
-        <div class="section-header">
-          <el-icon><DocumentChecked /></el-icon>
-          <span>审查进度</span>
-          <div class="header-actions">
-            <el-button
-              v-if="currentReview.status === 'COMPLETED'"
-              type="primary"
-              @click="downloadReport"
-              :loading="downloadLoading"
-            >
-              <el-icon><Download /></el-icon>
-              下载报告
-            </el-button>
-            <el-button @click="resetReview">
-              <el-icon><RefreshRight /></el-icon>
-              重新审查
-            </el-button>
-          </div>
+        <div class="card-header">
+          <h3>🔍 正在分析合同</h3>
+          <p class="card-subtitle">{{ currentReview.originalFilename }}</p>
         </div>
       </template>
 
-      <!-- 文件信息 -->
-      <div class="file-summary">
-        <div class="file-item">
-          <el-icon><Document /></el-icon>
-          <span>{{ currentReview.filename }}</span>
-          <el-tag :type="getStatusType(currentReview.status)">
-            {{ getStatusText(currentReview.status) }}
-          </el-tag>
-        </div>
-      </div>
-
-      <!-- 进度步骤 -->
-      <el-steps :active="currentStep" class="review-steps" finish-status="success">
-        <el-step title="文件上传" description="正在上传合同文件..." />
-        <el-step title="内容解析" description="正在提取文档内容..." />
-        <el-step title="AI分析" description="正在进行智能分析..." />
-        <el-step title="风险评估" description="正在评估潜在风险..." />
-        <el-step title="生成报告" description="正在生成审查报告..." />
+      <!-- 分析步骤 -->
+      <el-steps :active="currentStep" align-center class="analysis-steps">
+        <el-step title="文档解析" description="提取合同文本内容" />
+        <el-step title="风险识别" description="识别潜在法律风险" />
+        <el-step title="条款分析" description="分析关键条款" />
+        <el-step title="生成报告" description="生成详细审查报告" />
       </el-steps>
 
       <!-- 实时日志 -->
-      <div class="log-section">
-        <h4>实时日志</h4>
-        <div class="log-container" ref="logContainer">
+      <div class="analysis-logs">
+        <h4>分析日志</h4>
+        <div ref="logsContainer" class="logs-container">
           <div
-            v-for="(log, index) in reviewLogs"
+            v-for="(log, index) in analysisLogs"
             :key="index"
-            class="log-item"
-            :class="log.type"
+            :class="['log-item', log.type]"
           >
             <span class="log-time">{{ formatLogTime(log.timestamp) }}</span>
-            <span class="log-content">{{ log.message }}</span>
+            <span class="log-message">{{ log.message }}</span>
           </div>
         </div>
       </div>
 
-      <!-- 审查结果 -->
-      <div v-if="currentReview.status === 'COMPLETED' && reviewResult" class="result-section">
-        <h4>审查结果概览</h4>
-        
-        <!-- 风险等级 -->
-        <div class="risk-overview">
-          <div class="risk-level">
-            <span class="label">整体风险等级：</span>
+      <!-- 取消按钮 -->
+      <div class="analysis-actions">
+        <el-button type="danger" @click="cancelAnalysis">取消分析</el-button>
+      </div>
+    </el-card>
+    
+    <!-- 分析结果区域 -->
+    <div v-if="analysisStatus === 'completed' && analysisResult" class="result-section">
+      <!-- 结果概览 -->
+      <el-card class="result-overview" shadow="never">
+        <template #header>
+          <div class="result-header">
+            <div class="header-left">
+              <h3>📊 审查结果</h3>
+              <p class="file-name">{{ currentReview?.originalFilename }}</p>
+            </div>
+            <div class="header-right">
             <el-tag
-              :type="getRiskLevelType(reviewResult.riskLevel)"
+                :type="riskLevelType"
               size="large"
               effect="dark"
             >
-              {{ getRiskLevelText(reviewResult.riskLevel) }}
+                {{ riskLevelText }}
             </el-tag>
           </div>
-          
-          <div class="risk-score" v-if="reviewResult.riskScore">
-            <span class="label">风险评分：</span>
-            <el-progress
-              :percentage="reviewResult.riskScore"
-              :color="getRiskScoreColor(reviewResult.riskScore)"
-              :show-text="true"
-              :format="(percentage) => `${percentage}分`"
-            />
           </div>
-        </div>
-
-        <!-- 风险条款 -->
-        <div v-if="reviewResult.riskClauses?.length" class="risk-clauses">
-          <h5>发现的风险条款</h5>
-          <div class="clauses-list">
-            <el-card
-              v-for="(clause, index) in reviewResult.riskClauses"
+        </template>
+        
+        <el-row :gutter="20">
+          <el-col :xs="24" :sm="8">
+            <div class="stat-item">
+              <div class="stat-number">{{ analysisResult.riskCount || 0 }}</div>
+              <div class="stat-label">风险项</div>
+            </div>
+          </el-col>
+          <el-col :xs="24" :sm="8">
+            <div class="stat-item">
+              <div class="stat-number">{{ analysisResult.clauseCount || 0 }}</div>
+              <div class="stat-label">关键条款</div>
+            </div>
+          </el-col>
+          <el-col :xs="24" :sm="8">
+            <div class="stat-item">
+              <div class="stat-number">{{ analysisResult.score || 0 }}</div>
+              <div class="stat-label">
+                综合评分
+                <el-tooltip 
+                  v-if="analysisResult.scoringRules" 
+                  :content="getScoringRulesTooltip()" 
+                  placement="top" 
+                  :show-after="300"
+                  effect="light"
+                  :width="350"
+                  raw-content
+                >
+                  <el-icon class="score-info-icon" :size="16">
+                    <InfoFilled />
+                  </el-icon>
+                </el-tooltip>
+              </div>
+            </div>
+          </el-col>
+        </el-row>
+      </el-card>
+      
+      <!-- 详细结果 -->
+      <el-row :gutter="20">
+        <!-- 风险项列表 -->
+        <el-col :xs="24" :lg="12">
+          <el-card class="risk-card" shadow="never">
+            <template #header>
+              <h4>⚠️ 风险项分析</h4>
+            </template>
+            
+            <div v-if="analysisResult.risks && analysisResult.risks.length > 0">
+              <div
+                v-for="(risk, index) in analysisResult.risks"
               :key="index"
-              class="clause-item"
-              shadow="hover"
+                class="risk-item"
             >
-              <div class="clause-header">
+                <div class="risk-header">
                 <el-tag
-                  :type="getRiskLevelType(clause.riskLevel)"
+                    :type="getRiskTagType(risk.level)"
                   size="small"
                 >
-                  {{ getRiskLevelText(clause.riskLevel) }}
+                    {{ risk.level }}
                 </el-tag>
-                <span class="clause-type">{{ clause.clauseType }}</span>
+                  <span class="risk-title">{{ risk.title }}</span>
+                  <el-tag v-if="risk.source" size="small" type="info" effect="plain" style="margin-left: 8px;">
+                    📍 {{ risk.source }}
+                  </el-tag>
+                </div>
+                <p class="risk-description">{{ risk.description }}</p>
+                <div v-if="risk.suggestion" class="risk-suggestion">
+                  <strong>💡 建议：</strong>{{ risk.suggestion }}
+                </div>
+                <div v-if="risk.legalBasis" class="risk-legal-basis">
+                  <strong>⚖️ 法律依据：</strong>{{ risk.legalBasis }}
+                </div>
               </div>
-              
+            </div>
+            <el-empty v-else description="未发现明显风险" />
+          </el-card>
+        </el-col>
+        
+        <!-- 关键条款 -->
+        <el-col :xs="24" :lg="12">
+          <el-card class="clause-card" shadow="never">
+            <template #header>
+              <h4>📋 关键条款</h4>
+            </template>
+            
+            <div v-if="analysisResult.clauses && analysisResult.clauses.length > 0">
+              <el-collapse v-model="activeClause">
+                <el-collapse-item
+                  v-for="(clause, index) in analysisResult.clauses"
+                  :key="index"
+                  :title="clause.title"
+                  :name="index"
+                >
               <div class="clause-content">
-                <p><strong>原文：</strong>{{ clause.originalText }}</p>
-                <p><strong>风险描述：</strong>{{ clause.riskDescription }}</p>
-                <p v-if="clause.suggestion"><strong>建议：</strong>{{ clause.suggestion }}</p>
+                    <p><strong>内容：</strong>{{ clause.content }}</p>
+                    <p v-if="clause.analysis"><strong>分析：</strong>{{ clause.analysis }}</p>
+                  </div>
+                </el-collapse-item>
+              </el-collapse>
               </div>
+            <el-empty v-else description="未识别到关键条款" />
             </el-card>
-          </div>
-        </div>
-
-        <!-- 总结建议 -->
-        <div v-if="reviewResult.summary" class="summary-section">
-          <h5>总结与建议</h5>
-          <div class="summary-content" v-html="renderMarkdown(reviewResult.summary)"></div>
-        </div>
+        </el-col>
+      </el-row>
+      
+      <!-- 操作按钮 -->
+      <div class="result-actions">
+        <el-button type="primary" :icon="Download" @click="downloadReport">
+          下载报告
+        </el-button>
+        <el-button type="success" @click="startNewAnalysis">
+          分析新合同
+        </el-button>
       </div>
-    </el-card>
-
-    <!-- 错误状态 -->
-    <el-card v-if="currentReview?.status === 'FAILED'" class="error-section" shadow="never">
-      <el-result
-        icon="error"
-        title="审查失败"
-        sub-title="文件处理过程中发生错误，请重新上传或联系技术支持"
-      >
-        <template #extra>
-          <el-button type="primary" @click="resetReview">重新开始</el-button>
-        </template>
-      </el-result>
-    </el-card>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, nextTick, onUnmounted } from 'vue'
+import { ref, computed, nextTick, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { marked } from 'marked'
-import type { UploadInstance, UploadRawFile } from 'element-plus'
-import type { ContractReview } from '@/types/api'
 import {
-  uploadContractApi,
-  createAnalysisSSE,
-  downloadReportApi
-} from '@/api/contractService'
-import {
-  Upload,
   UploadFilled,
-  Document,
-  DocumentChecked,
   Download,
-  RefreshRight
+  InfoFilled
 } from '@element-plus/icons-vue'
+import type { UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
+import { useUserStore } from '@/store/modules/user'
 
-// 组件状态
-const uploadRef = ref<UploadInstance>()
-const logContainer = ref<HTMLElement>()
-const selectedFile = ref<File | null>(null)
-const uploading = ref(false)
-const downloadLoading = ref(false)
-const currentReview = ref<ContractReview | null>(null)
-const currentStep = ref(0)
-const reviewResult = ref<any>(null)
-const eventSource = ref<EventSource | null>(null)
-
-// 审查日志
-interface ReviewLog {
+// 类型定义
+interface AnalysisLog {
   timestamp: string
-  message: string
   type: 'info' | 'success' | 'warning' | 'error'
-}
-const reviewLogs = ref<ReviewLog[]>([])
-
-// 文件选择处理
-const handleFileSelect = (file: any) => {
-  selectedFile.value = file.raw
+  message: string
 }
 
-// 文件移除处理
-const handleFileRemove = () => {
-  selectedFile.value = null
+interface RiskItem {
+  level: 'HIGH' | 'MEDIUM' | 'LOW'
+  title: string
+  description: string
+  suggestion?: string
+  legalBasis?: string
+  source?: string
+  clauseText?: string
 }
 
-// 文件上传前验证
-const beforeUpload = (file: UploadRawFile) => {
-  const isValidType = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword', 'text/plain'].includes(file.type)
-  const isValidSize = file.size / 1024 / 1024 < 10
+interface ClauseItem {
+  title: string
+  content: string
+  analysis?: string
+  importance?: string
+  section?: string
+}
+
+interface AnalysisResult {
+  riskCount: number
+  clauseCount: number
+  score: number
+  riskLevel: 'HIGH' | 'MEDIUM' | 'LOW'
+  risks: RiskItem[]
+  clauses: ClauseItem[]
+  summary?: any
+  detailedAnalysis?: any
+  riskClauses?: any[]
+  scoringRules?: {
+    method: string
+    rules: string[]
+    description: string
+  }
+}
+
+interface ContractReview {
+  id: number
+  filename: string
+  status: string
+  riskLevel?: 'HIGH' | 'MEDIUM' | 'LOW'
+}
+
+const userStore = useUserStore()
+
+// 响应式数据
+const uploadRef = ref<UploadInstance>()
+const logsContainer = ref<HTMLElement>()
+const uploadProgress = ref(0)
+const currentReview = ref<ContractReview | null>(null)
+const analysisStatus = ref<'pending' | 'processing' | 'completed' | 'failed'>('pending')
+const currentStep = ref(0)
+const analysisLogs = ref<AnalysisLog[]>([])
+const analysisResult = ref<AnalysisResult | null>(null)
+const activeClause = ref<number[]>([])
+const isNormalClose = ref(false) // 标记是否为正常关闭SSE连接
+let eventSource: EventSource | null = null
+
+// 计算属性
+const uploadAction = computed(() => '/api/v1/contracts/upload')
+
+const uploadHeaders = computed(() => {
+  const headers: Record<string, string> = {}
+  if (userStore.token) {
+    headers['Authorization'] = `Bearer ${userStore.token}`
+  }
+  return headers
+})
+
+const riskLevelType = computed(() => {
+  if (!analysisResult.value) return 'info'
+  const typeMap = {
+    HIGH: 'danger',
+    MEDIUM: 'warning',
+    LOW: 'success'
+  }
+  return typeMap[analysisResult.value.riskLevel] as 'danger' | 'warning' | 'success'
+})
+
+const riskLevelText = computed(() => {
+  if (!analysisResult.value) return '未知'
+  const textMap = {
+    HIGH: '高风险',
+    MEDIUM: '中风险',
+    LOW: '低风险'
+  }
+  return textMap[analysisResult.value.riskLevel]
+})
+
+// 工具函数
+const formatLogTime = (timestamp: string) => {
+  return new Date(timestamp).toLocaleTimeString('zh-CN')
+}
+
+const getRiskTagType = (level: string) => {
+  const typeMap = {
+    HIGH: 'danger',
+    MEDIUM: 'warning',
+    LOW: 'success'
+  }
+  return typeMap[level as keyof typeof typeMap] || 'info'
+}
+
+// 获取评分细则的tooltip内容
+const getScoringRulesTooltip = () => {
+  if (!analysisResult.value?.scoringRules) {
+    return '暂无评分细则说明'
+  }
+  
+  const rules = analysisResult.value.scoringRules
+  let content = `<div style="max-width: 350px;">
+    <div style="font-weight: bold; margin-bottom: 8px; color: #409EFF;">${rules.method || '评分方法'}</div>`
+  
+  if (rules.rules && rules.rules.length > 0) {
+    content += '<div style="margin-bottom: 8px;">'
+    rules.rules.forEach((rule, index) => {
+      content += `<div style="margin-bottom: 4px;">• ${rule}</div>`
+    })
+    content += '</div>'
+  }
+  
+  if (rules.description) {
+    content += `<div style="padding: 8px; background: #f5f7fa; border-radius: 4px; font-size: 12px; color: #666;">
+      ${rules.description}
+    </div>`
+  }
+  
+  content += '</div>'
+  return content
+}
+
+const scrollLogsToBottom = () => {
+  nextTick(() => {
+    if (logsContainer.value) {
+      logsContainer.value.scrollTop = logsContainer.value.scrollHeight
+    }
+  })
+}
+
+const addLog = (type: AnalysisLog['type'], message: string) => {
+  analysisLogs.value.push({
+    timestamp: new Date().toISOString(),
+    type,
+    message
+  })
+  scrollLogsToBottom()
+}
+
+// 上传相关函数
+const beforeUpload: UploadProps['beforeUpload'] = (rawFile: UploadRawFile) => {
+  const isValidType = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'].includes(rawFile.type)
+  const isLt10M = rawFile.size / 1024 / 1024 < 10
 
   if (!isValidType) {
-    ElMessage.error('只支持 PDF、Word、文本格式的文件')
+    ElMessage.error('只支持 PDF、DOC、DOCX 格式的文件!')
+    return false
+  }
+  if (!isLt10M) {
+    ElMessage.error('文件大小不能超过 10MB!')
     return false
   }
 
-  if (!isValidSize) {
-    ElMessage.error('文件大小不能超过 10MB')
-    return false
-  }
-
-  return false // 阻止自动上传
+  uploadProgress.value = 0
+  return true
 }
 
-// 开始上传和审查
-const startUpload = async () => {
-  if (!selectedFile.value) return
-
-  uploading.value = true
-  addLog('开始上传文件...', 'info')
-
-  try {
-    // 上传文件
-    const uploadResponse = await uploadContractApi(selectedFile.value)
+const handleUploadSuccess = (response: any) => {
+  uploadProgress.value = 100
+  
+  if (response.success && response.data) {
+    currentReview.value = {
+      id: response.data.reviewId,
+      originalFilename: response.data.originalFilename || '未知文件',
+      reviewStatus: response.data.reviewStatus
+    }
     
-    if (uploadResponse.data.success) {
-      currentReview.value = {
-        id: uploadResponse.data.reviewId,
-        filename: selectedFile.value.name,
-        status: 'PENDING'
-      } as ContractReview
+    ElMessage.success('文件上传成功，开始分析...')
+    startAnalysis(response.data.reviewId)
+  } else {
+    ElMessage.error(response.message || '上传失败')
+  }
+}
 
-      addLog('文件上传成功，开始审查...', 'success')
-      currentStep.value = 1
+const handleUploadError = (error: any) => {
+  console.error('Upload error:', error)
+  uploadProgress.value = 0
+  ElMessage.error('文件上传失败，请重试')
+}
 
-      // 开始异步审查
-      startAsyncAnalysis(uploadResponse.data.reviewId)
+// 分析相关函数
+const startAnalysis = (reviewId: number) => {
+  // 确保reviewId是有效的数字
+  if (!reviewId || isNaN(reviewId)) {
+    console.error('Invalid reviewId:', reviewId)
+    ElMessage.error('无效的审查ID')
+    return
+  }
+  
+  // 防止重复分析 - 如果当前正在分析，则不允许开始新的分析
+  if (analysisStatus.value === 'processing') {
+    console.warn('分析已在进行中，忽略重复请求')
+    ElMessage.warning('合同正在分析中，请勿重复操作')
+    return
+  }
+  
+  analysisStatus.value = 'processing'
+  currentStep.value = 0
+  analysisLogs.value = []
+  isNormalClose.value = false // 重置标志
+  
+  // 关闭之前的连接（如果存在）
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+  
+  addLog('info', '开始分析合同文件...')
+  
+  // 创建SSE连接监听分析进度，通过查询参数传递token
+  const token = userStore.token
+  if (!token) {
+    ElMessage.error('用户未登录，请重新登录')
+    return
+  }
+  
+  // 在开发环境下需要使用完整的URL指向后端服务器
+  const isDev = import.meta.env.DEV
+  const baseUrl = isDev ? 'http://localhost:8080' : ''
+  const url = `${baseUrl}/api/v1/contracts/${reviewId}/analyze-async?token=${encodeURIComponent(token)}`
+  console.log('Creating SSE connection to:', url)
+  eventSource = new EventSource(url)
+  
+  // 监听默认消息事件
+  eventSource.onmessage = (event) => {
+    try {
+      if (event.data && event.data !== 'undefined') {
+        const data = JSON.parse(event.data)
+        handleAnalysisEvent(data)
+      } else {
+        console.warn('收到空数据的SSE消息')
+      }
+    } catch (error) {
+      console.error('Failed to parse SSE data:', error)
+      console.log('原始数据:', event.data)
+      addLog('error', '解析分析数据失败')
+    }
+  }
+  
+  // 监听Named Events (后端发送的特定事件名称)
+  eventSource.addEventListener('connected', (event) => {
+    try {
+      if (event.data && event.data !== 'undefined') {
+        const data = JSON.parse(event.data)
+        handleAnalysisEvent({ type: 'connected', ...data })
+      } else {
+        // 如果没有数据，使用默认消息
+        handleAnalysisEvent({ type: 'connected', message: 'SSE连接已建立' })
+      }
+    } catch (error) {
+      console.error('Failed to parse connected event:', error)
+    }
+  })
+  
+  eventSource.addEventListener('info', (event) => {
+    try {
+      if (event.data && event.data !== 'undefined') {
+        const data = JSON.parse(event.data)
+        handleAnalysisEvent({ type: 'info', ...data })
+      }
+    } catch (error) {
+      console.error('Failed to parse info event:', error)
+    }
+  })
+  
+  eventSource.addEventListener('progress', (event) => {
+    try {
+      if (event.data && event.data !== 'undefined') {
+        const data = JSON.parse(event.data)
+        handleAnalysisEvent({ type: 'progress', ...data })
+      }
+    } catch (error) {
+      console.error('Failed to parse progress event:', error)
+    }
+  })
+  
+  eventSource.addEventListener('result', (event) => {
+    try {
+      if (event.data && event.data !== 'undefined') {
+        const data = JSON.parse(event.data)
+        console.log('Received result event:', data)
+        handleAnalysisEvent({ type: 'result', ...data })
+      }
+    } catch (error) {
+      console.error('Failed to parse result event:', error)
+    }
+  })
+  
+  eventSource.addEventListener('complete', (event) => {
+    try {
+      if (event.data && event.data !== 'undefined') {
+        const data = JSON.parse(event.data)
+        console.log('Received complete event:', data)
+        handleAnalysisEvent({ type: 'complete', ...data })
+      } else {
+        // 如果没有数据，使用默认完成消息
+        handleAnalysisEvent({ type: 'complete', message: '分析已完成' })
+      }
+    } catch (error) {
+      console.error('Failed to parse complete event:', error)
+    }
+  })
+  
+  // 监听服务器主动发送的错误事件（如果有的话）
+  eventSource.addEventListener('error', (event) => {
+    try {
+      // 检查是否有数据，如果没有数据则跳过JSON解析
+      if (event.data && event.data !== 'undefined') {
+        const data = JSON.parse(event.data)
+        handleAnalysisEvent({ type: 'error', ...data })
+      } else {
+        console.log('收到error事件但无数据，可能是连接级错误')
+        // 这种情况由onerror处理器处理
+      }
+    } catch (error) {
+      console.error('Failed to parse error event:', error)
+      console.log('原始事件数据:', event.data)
+    }
+  })
+  
+  eventSource.addEventListener('timeout', (event) => {
+    try {
+      if (event.data && event.data !== 'undefined') {
+        const data = JSON.parse(event.data)
+        handleAnalysisEvent({ type: 'timeout', ...data })
+      } else {
+        // 处理超时事件无数据的情况
+        addLog('warning', '分析超时，连接已断开')
+        analysisStatus.value = 'timeout'
+        if (eventSource) {
+          eventSource.close()
+          eventSource = null
+        }
+      }
+    } catch (error) {
+      console.error('Failed to parse timeout event:', error)
+      addLog('warning', '连接超时')
+    }
+  })
+  
+  eventSource.onopen = () => {
+    console.log('SSE connection opened successfully')
+    // 不在这里添加日志，等待服务器发送connected事件
+  }
+  
+  eventSource.onerror = (error) => {
+    console.error('SSE connection error:', error)
+    console.error('EventSource readyState:', eventSource?.readyState)
+    console.error('EventSource URL:', eventSource?.url)
+    
+    // 添加更详细的错误诊断
+    const readyStateText = eventSource?.readyState === 0 ? 'CONNECTING' : 
+                          eventSource?.readyState === 1 ? 'OPEN' : 
+                          eventSource?.readyState === 2 ? 'CLOSED' : 'UNKNOWN'
+    console.error('EventSource状态:', readyStateText)
+    
+    // 如果是正常关闭（收到complete事件后的关闭），不显示错误
+    if (isNormalClose.value) {
+      console.log('分析已完成，SSE连接正常关闭')
+      return
+    }
+    
+    // 如果已经接收到分析结果，说明是正常完成后的关闭，不显示错误
+    if (analysisStatus.value === 'completed' && analysisResult.value) {
+      console.log('分析已完成，SSE连接正常关闭')
+      return
+    }
+    
+    addLog('warning', `SSE连接状态: ${readyStateText}`)
+    
+    // 检查连接状态
+    if (eventSource?.readyState === EventSource.CLOSED) {
+      // 连接已关闭，可能是超时、网络错误或服务器主动关闭
+      addLog('warning', '连接已断开，分析可能仍在后台进行')
+      addLog('info', '您可以稍后刷新页面查看分析结果')
+      
+        // 设置定时器，定期检查分析结果
+        const checkInterval = setInterval(async () => {
+          try {
+            // 使用fetch直接调用API检查状态
+            const token = userStore.token
+            const response = await fetch(`/api/v1/contracts/${reviewId}`, {
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            })
+            
+            if (response.ok) {
+              const result = await response.json()
+              if (result.success && result.data) {
+                const review = result.data
+                if (review.reviewStatus === 'COMPLETED') {
+                  clearInterval(checkInterval)
+                  // 转换后端数据结构为前端期望格式
+                  const transformed = {
+                    ...review,
+                    risks: review.riskClauses?.map((clause: any, index: number) => ({
+                      level: clause.riskLevel || 'UNKNOWN',
+                      title: clause.riskType || '未知风险',
+                      description: clause.riskDescription || clause.clauseText || '',
+                      suggestion: clause.suggestion || '',
+                      legalBasis: clause.legalBasis || '',
+                      clauseText: clause.clauseText || '',
+                      source: clause.positionStart && clause.positionEnd 
+                        ? `字符位置 ${clause.positionStart}-${clause.positionEnd}` 
+                        : `风险项 ${index + 1}`
+                    })) || [],
+                    riskCount: review.totalRisks || review.riskClauses?.length || 0,
+                    clauseCount: review.detailedAnalysis?.keyClauses?.length || 0,
+                    score: review.summary?.complianceScore || review.summary?.completenessScore || 0,
+                    clauses: review.detailedAnalysis?.keyClauses || 
+                             review.detailedAnalysis?.key_clauses || [],
+                    // 保留评分细则信息
+                    scoringRules: review.summary?.scoringRules
+                  }
+                  analysisResult.value = transformed
+                  analysisStatus.value = 'completed'
+                  addLog('success', '分析已完成！')
+                } else if (review.reviewStatus === 'FAILED') {  
+                  clearInterval(checkInterval)
+                  analysisStatus.value = 'failed'
+                  addLog('error', '分析失败')
+                }
+              }
+            }
+          } catch (error) {
+            console.error('检查分析状态失败:', error)
+          }
+        }, 5000) // 每5秒检查一次
+      
+      // 5分钟后停止检查
+      setTimeout(() => {
+        clearInterval(checkInterval)
+      }, 5 * 60 * 1000)
+      
+    } else if (eventSource?.readyState === EventSource.CONNECTING) {
+      addLog('info', '正在重新连接...')
     } else {
-      throw new Error(uploadResponse.data.message || '上传失败')
+      addLog('warning', '连接出现问题，系统正在尝试恢复...')
     }
-  } catch (error: any) {
-    addLog(`上传失败: ${error.message}`, 'error')
-    ElMessage.error('文件上传失败')
-    resetReview()
-  } finally {
-    uploading.value = false
   }
 }
 
-// 开始异步分析
-const startAsyncAnalysis = (reviewId: number) => {
-  eventSource.value = createAnalysisSSE(
-    reviewId,
-    handleSSEMessage,
-    handleSSEError
-  )
+const handleAnalysisEvent = (data: any) => {
+  console.log('Processing SSE event:', data)
+  
+  switch (data.type) {
+    case 'connected':
+      addLog('success', data.message || 'SSE连接已建立')
+      break
+    case 'info':
+      addLog('info', data.message || '系统信息')
+      break
+    case 'progress':
+      currentStep.value = data.step || 0
+      addLog('info', data.message)
+      // 检查是否是错误阶段
+      if (data.stage === 'ERROR') {
+        analysisStatus.value = 'failed'
+        addLog('error', data.error || data.message || '分析过程中发生错误')
+        // 关闭SSE连接
+        if (eventSource) {
+          eventSource.close()
+          eventSource = null
+        }
+      }
+      break
+    case 'result':
+      console.log('Setting analysis result:', data.result)
+      // 转换后端数据结构为前端期望格式
+      if (data.result) {
+        const transformed = {
+          ...data.result,
+          // 将 riskClauses 转换为 risks，并添加来源信息
+          risks: data.result.riskClauses?.map((clause: any, index: number) => ({
+            level: clause.riskLevel || 'UNKNOWN',
+            title: clause.riskType || '未知风险',
+            description: clause.riskDescription || clause.clauseText || '',
+            suggestion: clause.suggestion || '',
+            legalBasis: clause.legalBasis || '',
+            clauseText: clause.clauseText || '',
+            // 添加来源信息
+            source: clause.positionStart && clause.positionEnd 
+              ? `字符位置 ${clause.positionStart}-${clause.positionEnd}` 
+              : `风险项 ${index + 1}`
+          })) || [],
+          // 映射统计数据
+          riskCount: data.result.totalRisks || data.result.riskClauses?.length || 0,
+          clauseCount: data.result.detailedAnalysis?.keyClauses?.length || 0,
+          score: data.result.summary?.complianceScore || data.result.summary?.completenessScore || 0,
+          // 提取关键条款
+          clauses: data.result.detailedAnalysis?.keyClauses || 
+                   data.result.detailedAnalysis?.key_clauses || [],
+          // 保留原始的 riskClauses 以备后用
+          riskClauses: data.result.riskClauses || [],
+          // 保留评分细则信息
+          scoringRules: data.result.summary?.scoringRules
+        }
+        console.log('Transformed analysis result:', transformed)
+        analysisResult.value = transformed
+      } else {
+        analysisResult.value = data.result
+      }
+      analysisStatus.value = 'completed'
+      addLog('success', '分析完成！')
+      isNormalClose.value = true // 标记为正常完成
+      // 注意：不要在这里关闭连接，等待complete事件
+      break
+    case 'complete':
+      addLog('success', data.message || '分析完成')
+      analysisStatus.value = 'completed'
+      isNormalClose.value = true // 标记为正常完成
+      eventSource?.close()
+      eventSource = null
+      break
+    case 'timeout':
+      addLog('warning', data.message || '连接超时，分析将在后台继续')
+      addLog('info', '请稍后刷新页面查看分析结果')
+      eventSource?.close()
+      eventSource = null
+      break
+    case 'error':
+      analysisStatus.value = 'failed'
+      addLog('error', data.error || data.message || '分析过程中发生错误')
+      console.error('分析错误:', data)
+      eventSource?.close()
+      eventSource = null
+      break
+  }
 }
 
-// 处理SSE消息
-const handleSSEMessage = (event: MessageEvent) => {
+// 模拟分析过程（用于演示）
+const simulateAnalysis = () => {
+  const steps = [
+    { step: 0, message: '正在解析文档结构...' },
+    { step: 1, message: '正在识别风险条款...' },
+    { step: 2, message: '正在分析关键条款...' },
+    { step: 3, message: '正在生成分析报告...' }
+  ]
+  
+  let stepIndex = 0
+  const interval = setInterval(() => {
+    if (stepIndex < steps.length) {
+      const step = steps[stepIndex]
+      currentStep.value = step.step
+      addLog('info', step.message)
+      stepIndex++
+    } else {
+      clearInterval(interval)
+      
+      // 模拟分析结果
+      analysisResult.value = {
+        riskCount: 3,
+        clauseCount: 5,
+        score: 75,
+        riskLevel: 'MEDIUM',
+        risks: [
+          {
+            level: 'HIGH',
+            title: '违约责任条款不明确',
+            description: '合同中违约责任的具体承担方式和赔偿标准不够明确，可能导致纠纷时难以执行。',
+            suggestion: '建议明确违约责任的具体形式和计算方式。'
+          },
+          {
+            level: 'MEDIUM',
+            title: '付款条件存在风险',
+            description: '付款时间节点设置不够合理，可能影响资金流。',
+            suggestion: '建议调整付款节点，增加保障措施。'
+          },
+          {
+            level: 'LOW',
+            title: '知识产权条款需完善',
+            description: '知识产权归属和使用权限需要进一步明确。',
+            suggestion: '建议补充详细的知识产权条款。'
+          }
+        ],
+        clauses: [
+          {
+            title: '合同标的',
+            content: '本合同标的为软件开发服务...',
+            analysis: '标的描述较为清晰，但建议增加更详细的技术规格说明。'
+          },
+          {
+            title: '履行期限',
+            content: '项目开发周期为6个月...',
+            analysis: '时间安排合理，但建议增加里程碑节点。'
+          },
+          {
+            title: '价款支付',
+            content: '总价款为100万元，分三期支付...',
+            analysis: '付款安排基本合理，建议增加验收标准。'
+          }
+        ],
+        summary: '该合同整体结构完整，但在违约责任、付款条件等方面存在一定风险，建议进行相应修改。'
+      }
+      
+      analysisStatus.value = 'completed'
+      addLog('success', '分析完成！')
+    }
+  }, 2000)
+}
+
+const cancelAnalysis = async () => {
   try {
-    const data = JSON.parse(event.data)
+    await ElMessageBox.confirm('确定要取消当前分析吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
     
-    switch (data.type) {
-      case 'progress':
-        handleProgressUpdate(data.data)
-        break
-      case 'result':
-        handlePartialResult(data.data)
-        break
-      case 'complete':
-        handleAnalysisComplete(data.data)
-        break
-      case 'error':
-        handleAnalysisError(data.data)
-        break
-    }
-  } catch (error) {
-    console.error('Failed to parse SSE message:', error)
+    eventSource?.close()
+    currentReview.value = null
+    analysisStatus.value = 'pending'
+    ElMessage.info('已取消分析')
+  } catch {
+    // 用户取消操作
   }
 }
 
-// 处理进度更新
-const handleProgressUpdate = (data: any) => {
-  addLog(data.message, 'info')
-  
-  if (data.step !== undefined) {
-    currentStep.value = data.step
-  }
-
-  if (currentReview.value) {
-    currentReview.value.status = 'PROCESSING'
-  }
-}
-
-// 处理部分结果
-const handlePartialResult = (data: any) => {
-  if (data.riskClauses) {
-    addLog(`发现 ${data.riskClauses.length} 个风险条款`, 'warning')
-  }
-}
-
-// 处理分析完成
-const handleAnalysisComplete = (data: any) => {
-  addLog('审查完成！', 'success')
-  currentStep.value = 5
-  
-  if (currentReview.value) {
-    currentReview.value.status = 'COMPLETED'
-    currentReview.value.riskLevel = data.riskLevel
-  }
-  
-  reviewResult.value = data
-  closeSSEConnection()
-}
-
-// 处理分析错误
-const handleAnalysisError = (data: any) => {
-  addLog(`审查失败: ${data.message}`, 'error')
-  
-  if (currentReview.value) {
-    currentReview.value.status = 'FAILED'
-  }
-  
-  closeSSEConnection()
-}
-
-// 处理SSE错误
-const handleSSEError = (event: Event) => {
-  console.error('SSE connection error:', event)
-  addLog('连接中断，请重新尝试', 'error')
-  closeSSEConnection()
-}
-
-// 关闭SSE连接
-const closeSSEConnection = () => {
-  if (eventSource.value) {
-    eventSource.value.close()
-    eventSource.value = null
-  }
-}
-
-// 下载报告
 const downloadReport = async () => {
-  if (!currentReview.value) return
+  if (!analysisResult.value || !analysisResult.value.id) {
+    ElMessage.warning('无法获取审查记录ID')
+    return
+  }
 
-  downloadLoading.value = true
   try {
-    const response = await downloadReportApi(currentReview.value.id)
+    // 使用fetch下载，可以添加Authorization header
+    const response = await fetch(`/api/v1/contracts/${analysisResult.value.id}/report`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${userStore.token}`
+      }
+    })
+
+    if (!response.ok) {
+      // 尝试解析错误消息
+      const errorData = await response.json().catch(() => null)
+      const errorMessage = errorData?.message || `下载失败 (${response.status})`
+      ElMessage.error(errorMessage)
+      return
+    }
+
+    // 获取文件内容
+    const blob = await response.blob()
     
+    // 从响应头获取文件名，如果没有则使用默认名称
+    const contentDisposition = response.headers.get('Content-Disposition')
+    let fileName = '合同审查报告.pdf'
+    if (contentDisposition) {
+      // 优先解析UTF-8编码的文件名 (filename*=UTF-8''...)
+      const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/)
+      if (utf8Match && utf8Match[1]) {
+        try {
+          fileName = decodeURIComponent(utf8Match[1])
+        } catch (e) {
+          console.warn('UTF-8文件名解码失败:', e)
+        }
+      } else {
+        // 回退到普通文件名解析
+        const fileNameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+        if (fileNameMatch && fileNameMatch[1]) {
+          fileName = fileNameMatch[1].replace(/['"]/g, '')
+          try {
+            fileName = decodeURIComponent(fileName)
+          } catch (e) {
+            // 解码失败，使用原始值
+          }
+        }
+      }
+    } else if (analysisResult.value.originalFilename) {
+      const baseName = analysisResult.value.originalFilename.replace(/\.[^/.]+$/, '')
+      fileName = `${baseName}_审查报告.pdf`
+    }
+
     // 创建下载链接
-    const blob = new Blob([response.data], { type: 'application/pdf' })
-    const url = URL.createObjectURL(blob)
+    const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `${currentReview.value.filename}_审查报告.pdf`
+    link.download = fileName
+    document.body.appendChild(link)
     link.click()
-    URL.revokeObjectURL(url)
+    
+    // 清理
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
     
     ElMessage.success('报告下载成功')
   } catch (error) {
-    ElMessage.error('报告下载失败')
-  } finally {
-    downloadLoading.value = false
+    console.error('下载报告失败:', error)
+    ElMessage.error('下载报告失败，请稍后重试')
   }
 }
 
-// 重置审查
-const resetReview = async () => {
-  if (currentReview.value?.status === 'PROCESSING') {
-    try {
-      await ElMessageBox.confirm(
-        '审查正在进行中，确定要重新开始吗？',
-        '确认',
-        { type: 'warning' }
-      )
-    } catch {
-      return
-    }
-  }
-
-  closeSSEConnection()
+const startNewAnalysis = () => {
   currentReview.value = null
-  reviewResult.value = null
-  selectedFile.value = null
+  analysisStatus.value = 'pending'
+  analysisResult.value = null
+  analysisLogs.value = []
   currentStep.value = 0
-  reviewLogs.value = []
-  uploadRef.value?.clearFiles()
+  uploadProgress.value = 0
 }
 
-// 添加日志
-const addLog = (message: string, type: ReviewLog['type'] = 'info') => {
-  reviewLogs.value.push({
-    timestamp: new Date().toISOString(),
-    message,
-    type
-  })
-  
-  nextTick(() => {
-    if (logContainer.value) {
-      logContainer.value.scrollTop = logContainer.value.scrollHeight
-    }
-  })
-}
-
-// 辅助函数
-const formatFileSize = (size: number) => {
-  if (size < 1024) return `${size} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  return `${(size / 1024 / 1024).toFixed(1)} MB`
-}
-
-const formatLogTime = (timestamp: string) => {
-  return new Date(timestamp).toLocaleTimeString('zh-CN', { hour12: false })
-}
-
-const getStatusType = (status: string) => {
-  const statusMap = {
-    PENDING: 'info',
-    PROCESSING: 'warning',
-    COMPLETED: 'success',
-    FAILED: 'danger'
-  }
-  return statusMap[status as keyof typeof statusMap] || 'info'
-}
-
-const getStatusText = (status: string) => {
-  const statusMap = {
-    PENDING: '待处理',
-    PROCESSING: '处理中',
-    COMPLETED: '已完成',
-    FAILED: '失败'
-  }
-  return statusMap[status as keyof typeof statusMap] || status
-}
-
-const getRiskLevelType = (level: string) => {
-  const levelMap = {
-    LOW: 'success',
-    MEDIUM: 'warning',
-    HIGH: 'danger'
-  }
-  return levelMap[level as keyof typeof levelMap] || 'info'
-}
-
-const getRiskLevelText = (level: string) => {
-  const levelMap = {
-    LOW: '低风险',
-    MEDIUM: '中风险',
-    HIGH: '高风险'
-  }
-  return levelMap[level as keyof typeof levelMap] || level
-}
-
-const getRiskScoreColor = (score: number) => {
-  if (score <= 30) return '#67c23a'
-  if (score <= 70) return '#e6a23c'
-  return '#f56c6c'
-}
-
-const renderMarkdown = (content: string) => {
-  return marked(content)
-}
-
-// 组件卸载时清理资源
+// 组件卸载时清理
 onUnmounted(() => {
-  closeSSEConnection()
+  eventSource?.close()
 })
 </script>
 
 <style scoped>
-.contract-review-container {
+.contract-container {
   max-width: 1200px;
   margin: 0 auto;
 }
 
-.page-header {
-  margin-bottom: 24px;
-  text-align: center;
+.upload-card,
+.analysis-card {
+  margin-bottom: 20px;
 }
 
-.page-header h2 {
+.card-header h3 {
   margin: 0 0 8px 0;
-  color: var(--text-primary);
+  font-size: 20px;
+  color: #2c3e50;
 }
 
-.page-header p {
+.card-subtitle {
   margin: 0;
-  color: var(--text-secondary);
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-}
-
-.header-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 12px;
-}
-
-.upload-section {
-  margin-bottom: 24px;
+  color: #7f8c8d;
+  font-size: 14px;
 }
 
 .upload-dragger {
   width: 100%;
 }
 
-.selected-file {
+.upload-progress {
   margin-top: 20px;
-  padding: 16px;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  background: #f8f9fa;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  text-align: center;
 }
 
-.file-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.progress-text {
+  margin-top: 10px;
+  color: #606266;
 }
 
-.file-name {
-  font-weight: 500;
+.analysis-steps {
+  margin: 30px 0;
 }
 
-.file-size {
-  color: var(--text-secondary);
-  font-size: 14px;
+.analysis-logs {
+  margin: 30px 0;
 }
 
-.review-section {
-  margin-bottom: 24px;
+.analysis-logs h4 {
+  margin: 0 0 15px 0;
+  color: #2c3e50;
 }
 
-.file-summary {
-  margin-bottom: 24px;
-}
-
-.file-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  background: #f8f9fa;
-}
-
-.review-steps {
-  margin: 32px 0;
-}
-
-.log-section {
-  margin: 24px 0;
-}
-
-.log-section h4 {
-  margin: 0 0 16px 0;
-  color: var(--text-primary);
-}
-
-.log-container {
+.logs-container {
   max-height: 300px;
   overflow-y: auto;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  background: #f8f9fa;
-  padding: 12px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 15px;
 }
 
 .log-item {
   display: flex;
-  gap: 12px;
   margin-bottom: 8px;
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .log-time {
-  color: var(--text-placeholder);
-  white-space: nowrap;
-  font-family: monospace;
+  color: #6c757d;
+  margin-right: 10px;
+  min-width: 80px;
 }
 
-.log-content {
+.log-message {
   flex: 1;
 }
 
-.log-item.info .log-content {
-  color: var(--text-regular);
+.log-item.info .log-message {
+  color: #17a2b8;
 }
 
-.log-item.success .log-content {
-  color: var(--success-color);
+.log-item.success .log-message {
+  color: #28a745;
 }
 
-.log-item.warning .log-content {
-  color: var(--warning-color);
+.log-item.warning .log-message {
+  color: #ffc107;
 }
 
-.log-item.error .log-content {
-  color: var(--danger-color);
+.log-item.error .log-message {
+  color: #dc3545;
+}
+
+.analysis-actions {
+  text-align: center;
+  margin-top: 20px;
 }
 
 .result-section {
-  margin-top: 24px;
+  margin-top: 20px;
 }
 
-.result-section h4,
-.result-section h5 {
-  margin: 0 0 16px 0;
-  color: var(--text-primary);
+.result-overview {
+  margin-bottom: 20px;
 }
 
-.risk-overview {
+.result-header {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
-  margin-bottom: 24px;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
-.risk-level,
-.risk-score {
+.header-left h3 {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  color: #2c3e50;
+}
+
+.file-name {
+  margin: 0;
+  color: #7f8c8d;
+  font-size: 14px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 20px;
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: bold;
+  color: #409EFF;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  color: #606266;
+  font-size: 14px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
+  gap: 6px;
 }
 
-.label {
-  font-weight: 500;
-  min-width: 120px;
+.score-info-icon {
+  color: #409EFF;
+  cursor: help;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
 }
 
-.risk-clauses {
-  margin-bottom: 24px;
+.score-info-icon:hover {
+  opacity: 1;
 }
 
-.clauses-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.risk-card,
+.clause-card {
+  height: 500px;
 }
 
-.clause-item {
+.risk-card :deep(.el-card__body),
+.clause-card :deep(.el-card__body) {
+  height: calc(100% - 60px);
+  overflow-y: auto;
+}
+
+.risk-item {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+  border-left: 4px solid #e9ecef;
+}
+
+.risk-item:last-child {
   margin-bottom: 0;
 }
 
-.clause-header {
+.risk-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
-.clause-type {
-  font-weight: 500;
+.risk-title {
+  margin-left: 10px;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.risk-description {
+  margin: 8px 0;
+  color: #5a6c7d;
+  line-height: 1.5;
+}
+
+.risk-suggestion {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: #e8f4fd;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #0c5aa6;
+}
+
+.risk-legal-basis {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: #fff3e0;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #666;
+}
+
+.clause-content {
+  line-height: 1.6;
 }
 
 .clause-content p {
   margin: 8px 0;
-  line-height: 1.6;
 }
 
-.summary-section {
-  padding: 16px;
-  border: 1px solid var(--border-light);
-  border-radius: 8px;
-  background: #f8f9fa;
+.result-actions {
+  text-align: center;
+  margin-top: 30px;
+  padding: 20px;
 }
 
-.summary-content {
-  line-height: 1.6;
+.result-actions .el-button {
+  margin: 0 10px;
 }
 
-.error-section {
-  margin-top: 24px;
-}
-
+/* 响应式设计 */
 @media (max-width: 768px) {
-  .selected-file {
+  .result-header {
     flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
+    gap: 15px;
   }
   
-  .risk-overview {
-    gap: 12px;
+  .stat-item {
+    padding: 15px;
   }
   
-  .risk-level,
-  .risk-score {
+  .stat-number {
+    font-size: 24px;
+  }
+  
+  .risk-card,
+  .clause-card {
+    height: auto;
+    margin-bottom: 20px;
+  }
+  
+  .result-actions .el-button {
+    display: block;
+    width: 100%;
+    margin: 10px 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .logs-container {
+    padding: 10px;
+  }
+  
+  .log-item {
     flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+    gap: 4px;
   }
   
-  .label {
+  .log-time {
     min-width: auto;
+    font-size: 12px;
   }
 }
 </style>

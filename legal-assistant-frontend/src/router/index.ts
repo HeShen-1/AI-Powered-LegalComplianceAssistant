@@ -93,8 +93,22 @@ router.beforeEach(async (to, from, next) => {
     document.title = `${to.meta.title} - 法律合规智能审查助手`
   }
   
-  // 如果访问登录页，直接通过
+  // 如果访问登录页，检查是否已登录
   if (to.name === 'Login') {
+    try {
+      const { useUserStore } = await import('@/store/modules/user')
+      const userStore = useUserStore()
+      await userStore.initializeAuth()
+      
+      // 如果已经登录，重定向到首页
+      if (userStore.isLoggedIn) {
+        console.log('User already logged in, redirecting to dashboard')
+        next('/')
+        return
+      }
+    } catch (error) {
+      console.error('Error checking login status:', error)
+    }
     next()
     return
   }
@@ -113,13 +127,13 @@ router.beforeEach(async (to, from, next) => {
     // 确保 store 已经初始化
     await userStore.initializeAuth()
     
-    console.log('Router guard - to.path:', to.path, 'requiresAuth:', to.meta?.requiresAuth, 'isLoggedIn:', userStore.isLoggedIn)
+    console.log('Router guard - to.path:', to.path, 'requiresAuth:', to.meta?.requiresAuth, 'isLoggedIn:', userStore.isLoggedIn, 'token:', !!userStore.token)
     
     // 检查是否需要认证
     if (to.meta?.requiresAuth && !userStore.isLoggedIn) {
       console.log('User not logged in, redirecting to /login')
       ElMessage.warning('请先登录')
-      next('/login')
+      next({ path: '/login', query: { redirect: to.fullPath } })
       return
     }
     
@@ -134,7 +148,7 @@ router.beforeEach(async (to, from, next) => {
   } catch (error) {
     console.error('Router guard error:', error)
     // 如果出错，跳转到登录页
-    next('/login')
+    next({ path: '/login', query: { redirect: to.fullPath } })
   }
 })
 

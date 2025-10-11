@@ -66,7 +66,7 @@ public class DocumentParserService {
         
         // 获取文件扩展名
         String fileExtension = getFileExtension(fileName);
-        if (isFileTypeSupported(fileExtension)) {
+        if (!isFileTypeSupported(fileExtension)) {
             throw new DocumentParsingException("不支持的文件类型: " + fileExtension);
         }
         
@@ -120,11 +120,28 @@ public class DocumentParserService {
     }
 
     /**
-     * 解析纯文本文件
+     * 解析纯文本文件（流式处理，避免OOM）
      */
     private String parseTextFile(InputStream inputStream) throws IOException {
-        byte[] bytes = inputStream.readAllBytes();
-        return new String(bytes, StandardCharsets.UTF_8);
+        // 使用BufferedReader进行流式读取，避免一次性加载大文件到内存
+        StringBuilder content = new StringBuilder();
+        try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                new java.io.InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+            
+            char[] buffer = new char[8192]; // 8KB 缓冲区
+            int charsRead;
+            
+            while ((charsRead = reader.read(buffer)) != -1) {
+                content.append(buffer, 0, charsRead);
+                
+                // 安全检查：如果内容超过100MB，抛出异常
+                if (content.length() > 100 * 1024 * 1024) {
+                    throw new IOException("文件内容过大，超过100MB限制");
+                }
+            }
+        }
+        
+        return content.toString();
     }
 
     /**
@@ -180,7 +197,7 @@ public class DocumentParserService {
      * 检查文件类型是否支持
      */
     public boolean isFileTypeSupported(String fileExtension) {
-        return !SUPPORTED_TYPES.contains(fileExtension.toLowerCase());
+        return SUPPORTED_TYPES.contains(fileExtension.toLowerCase());
     }
 
     /**

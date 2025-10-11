@@ -40,3 +40,18 @@ export const getDocumentsApi = (params?: PaginationParams & { category?: string 
 export const deleteDocumentApi = (docId: string) => {
   return apiClient.delete<ApiResponse>(`/knowledge-base/documents/${docId}`)
 }
+
+// 重建索引
+export const rebuildIndexApi = () => {
+  return apiClient.post<ApiResponse>('/vector-index/rebuild')
+}
+
+// 重新处理单个文档
+export const reprocessDocumentApi = (docId: string) => {
+  return apiClient.post<ApiResponse>(`/knowledge-base/documents/${docId}/reprocess`)
+}
+
+// 获取文档的向量块信息
+export const getDocumentChunksApi = (docId: string) => {
+  return apiClient.get<ApiResponse<any[]>>(`/knowledge-base/documents/${docId}/chunks`)
+}

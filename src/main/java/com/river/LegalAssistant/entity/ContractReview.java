@@ -1,5 +1,6 @@
 package com.river.LegalAssistant.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -65,6 +66,7 @@ public class ContractReview {
     private LocalDateTime completedAt;
 
     @OneToMany(mappedBy = "contractReview", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonManagedReference
     private List<RiskClause> riskClauses = new ArrayList<>();
 
     @PrePersist

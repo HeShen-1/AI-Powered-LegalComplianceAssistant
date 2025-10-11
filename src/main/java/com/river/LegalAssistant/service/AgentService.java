@@ -2,12 +2,23 @@ package com.river.LegalAssistant.service;
 
 import dev.langchain4j.service.AiServices;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.model.StreamingResponseHandler;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
+import dev.langchain4j.model.output.Response;
+import dev.langchain4j.data.message.AiMessage;
+import dev.langchain4j.model.chat.response.ChatResponse;
+import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.ollama.OllamaChatModel;
+import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
 import dev.langchain4j.model.openai.OpenAiChatModel;
+import dev.langchain4j.model.openai.OpenAiStreamingChatModel;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.http.client.jdk.JdkHttpClient;
 
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,10 +26,14 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
 import java.util.Map;
 import java.util.List;
 import java.util.Arrays;
 import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
  * 智能法律顾问代理服务
@@ -45,19 +60,27 @@ public class AgentService {
     private ChatModel basicChatModel;     // 基础聊天模型（Ollama）
     private ChatModel advancedChatModel;  // 高级聊天模型（OpenAI）
     
+    // 流式模型
+    private StreamingChatModel basicStreamingModel;     // 基础流式模型（Ollama）
+    private StreamingChatModel advancedStreamingModel;  // 高级流式模型（OpenAI）
+    
     // 会话记忆管理
     private final Map<String, ChatMemory> chatMemories = new ConcurrentHashMap<>();
     private final LegalTools legalTools;
+    private final PromptTemplateService promptTemplateService;
+    
+    // 异步执行器（支持SecurityContext传递）
+    private final Executor taskExecutor;
 
     // 配置参数
     @Value("${spring.ai.ollama.base-url:http://localhost:11434}")
     private String ollamaBaseUrl;
     
-    @Value("${spring.ai.openai.api-key:}")
-    private String openaiApiKey;
+    @Value("${spring.ai.deepseek.api-key:}")
+    private String deepSeekApiKey;
     
-    @Value("${spring.ai.openai.base-url:https://api.deepseek.com}")
-    private String openaiBaseUrl;
+    @Value("${spring.ai.deepseek.base-url:https://api.deepseek.com}")
+    private String deepSeekBaseUrl;
     
     // 混合架构配置
     @Value("${app.ai.service-mode.hybrid-enabled:true}")
@@ -66,7 +89,7 @@ public class AgentService {
     @Value("${app.ai.service-mode.basic-provider:ollama}")
     private String basicProvider;
     
-    @Value("${app.ai.service-mode.advanced-provider:openai}")
+    @Value("${app.ai.service-mode.advanced-provider:deepseek}")
     private String advancedProvider;
     
     @Value("${app.ai.service-mode.auto-fallback:true}")
@@ -102,7 +125,7 @@ public class AgentService {
          * @param question 用户问题
          * @return AI回答，可能包含工具调用结果
          */
-        String consultLegalMatter(String question);
+        String consultLegalMatter(@dev.langchain4j.service.UserMessage String question);
         
         /**
          * 合同条款分析咨询
@@ -112,11 +135,16 @@ public class AgentService {
          * @param question 具体问题
          * @return 分析结果和建议
          */
-        String analyzeContractMatter(String contractContent, String question);
+        String analyzeContractMatter(@dev.langchain4j.service.V("contractContent") String contractContent, 
+                                   @dev.langchain4j.service.UserMessage String question);
     }
 
-    public AgentService(LegalTools legalTools) {
+    public AgentService(LegalTools legalTools, 
+                        PromptTemplateService promptTemplateService,
+                        @Qualifier("generalTaskExecutor") Executor taskExecutor) {
         this.legalTools = legalTools;
+        this.promptTemplateService = promptTemplateService;
+        this.taskExecutor = taskExecutor;
         log.info("混合AI法律顾问代理服务启动");
     }
     
@@ -157,6 +185,17 @@ public class AgentService {
                                 .readTimeout(Duration.ofMinutes(2)))
                         .build();
                 
+                // 创建Ollama流式模型
+                this.basicStreamingModel = OllamaStreamingChatModel.builder()
+                        .baseUrl(ollamaBaseUrl)
+                        .modelName(basicModelName)
+                        .temperature(0.7)
+                        .timeout(Duration.ofMinutes(2))
+                        .httpClientBuilder(JdkHttpClient.builder()
+                                .connectTimeout(Duration.ofSeconds(30))
+                                .readTimeout(Duration.ofMinutes(2)))
+                        .build();
+                
                 // 创建基础智能助手（不使用工具，避免qwen2:1.5b的工具调用问题）
                 this.basicLegalAssistant = createSimpleLegalAssistant(legalTools);
                 
@@ -183,16 +222,19 @@ public class AgentService {
         log.info("初始化高级AI服务：{} ({})", advancedProvider, advancedModelName);
         
         try {
-            if ("openai".equalsIgnoreCase(advancedProvider)) {
-                // 检查OpenAI API密钥
-                if (openaiApiKey == null || openaiApiKey.isEmpty() || "your_openai_api_key_here".equals(openaiApiKey)) {
-                    log.warn("OpenAI API密钥未配置，高级服务将不可用");
+            if ("deepseek".equalsIgnoreCase(advancedProvider) || "openai".equalsIgnoreCase(advancedProvider)) {
+                // 检查DeepSeek API密钥
+                if (deepSeekApiKey == null || deepSeekApiKey.isEmpty() || "your_deepseek_api_key_here".equals(deepSeekApiKey)) {
+                    log.warn("DeepSeek API密钥未配置，高级服务将不可用");
                     advancedServiceAvailable = false;
                     return;
                 }
                 
-                // 创建OpenAI高级模型
-                this.advancedChatModel = createOpenAiChatModel(advancedModelName, 0.3);
+                // 创建DeepSeek高级模型
+                this.advancedChatModel = createDeepSeekChatModel(advancedModelName, 0.3);
+                
+                // 创建DeepSeek流式模型
+                this.advancedStreamingModel = createDeepSeekStreamingChatModel(advancedModelName, 0.3);
                 
                 // 创建高级智能助手（支持工具调用）
                 this.advancedLegalAssistant = AiServices.builder(LegalAssistant.class)
@@ -211,7 +253,7 @@ public class AgentService {
                         .modelName(advancedModelName)
                         .temperature(0.3)
                         .timeout(Duration.ofMinutes(5))
-                        .logRequests(true)
+                        .logRequests(false)  // 关闭请求日志，避免在终端输出大量内容
                         .logResponses(false)
                         .httpClientBuilder(JdkHttpClient.builder()
                                 .connectTimeout(Duration.ofSeconds(30))
@@ -249,22 +291,50 @@ public class AgentService {
     }
     
     /**
-     * 创建OpenAI聊天模型 - 显式指定JDK HTTP客户端
+     * 创建DeepSeek聊天模型 - 使用OpenAI兼容接口
      */
-    private OpenAiChatModel createOpenAiChatModel(String modelName, double temperature) {
+    private OpenAiChatModel createDeepSeekChatModel(String modelName, double temperature) {
         return OpenAiChatModel.builder()
-                .apiKey(openaiApiKey)
-                .baseUrl(openaiBaseUrl)
+                .apiKey(deepSeekApiKey)
+                .baseUrl(deepSeekBaseUrl)
                 .modelName(modelName)
                 .temperature(temperature)
                 .maxTokens(4096)
                 .timeout(Duration.ofMinutes(3))
-                .logRequests(true)
+                .logRequests(false)  // 关闭请求日志，避免在终端输出大量内容
                 .logResponses(false)
                 .httpClientBuilder(JdkHttpClient.builder()
                         .connectTimeout(Duration.ofSeconds(30))
                         .readTimeout(Duration.ofMinutes(3)))
                 .build();
+    }
+    
+    /**
+     * 创建DeepSeek流式聊天模型 - 使用OpenAI兼容接口
+     */
+    private OpenAiStreamingChatModel createDeepSeekStreamingChatModel(String modelName, double temperature) {
+        return OpenAiStreamingChatModel.builder()
+                .apiKey(deepSeekApiKey)
+                .baseUrl(deepSeekBaseUrl)
+                .modelName(modelName)
+                .temperature(temperature)
+                .maxTokens(4096)
+                .timeout(Duration.ofMinutes(3))
+                .logRequests(false)  // 关闭请求日志，避免在终端输出大量内容
+                .logResponses(false)
+                .httpClientBuilder(JdkHttpClient.builder()
+                        .connectTimeout(Duration.ofSeconds(30))
+                        .readTimeout(Duration.ofMinutes(3)))
+                .build();
+    }
+
+    /**
+     * 创建OpenAI聊天模型 - 兼容性方法（废弃）
+     * @deprecated 请使用 createDeepSeekChatModel 方法
+     */
+    @Deprecated
+    private OpenAiChatModel createOpenAiChatModel(String modelName, double temperature) {
+        return createDeepSeekChatModel(modelName, temperature);
     }
     
     
@@ -296,6 +366,99 @@ public class AgentService {
     public String consultLegalMatter(String question) {
         return consultLegalMatter(question, "default");
     }
+
+    /**
+     * 智能法律咨询 - 返回详细信息
+     * 包含使用的模型和服务信息
+     */
+    public ConsultationResult consultLegalMatterWithDetails(String question) {
+        return consultLegalMatterWithDetails(question, "default");
+    }
+
+    /**
+     * 智能法律咨询结果记录类
+     */
+    public record ConsultationResult(
+        String answer, 
+        String serviceUsed, 
+        String modelUsed, 
+        boolean isDeepSeekUsed
+    ) {}
+
+    /**
+     * 智能法律咨询（指定会话）- 返回详细信息
+     */
+    @CircuitBreaker(name = "aiService", fallbackMethod = "consultLegalMatterWithDetailsFallback")
+    @Retry(name = "aiService")
+    public ConsultationResult consultLegalMatterWithDetails(String question, String sessionId) {
+        log.info("处理法律咨询请求: {}, 会话ID: {}", 
+                question.length() > 50 ? question.substring(0, 50) + "..." : question, sessionId);
+        
+        try {
+            if (question.trim().isEmpty()) {
+                return new ConsultationResult(
+                    "请提供具体的法律问题，我将为您提供专业的咨询建议。",
+                    "系统提示",
+                    "none",
+                    false
+                );
+            }
+            
+            // 高级法律咨询：优先使用DeepSeek，降级到OLLAMA
+            String response;
+            String serviceInfo;
+            String modelInfo;
+            boolean isDeepSeek;
+            
+            try {
+                if (advancedChatModel != null) {
+                    // 使用DeepSeek高级服务进行法律咨询
+                    response = advancedChatModel.chat("作为专业法律助手，请提供准确、详细的法律建议：" + question);
+                    serviceInfo = "DeepSeek AI Agent";
+                    modelInfo = "deepseek-chat";
+                    isDeepSeek = true;
+                } else if (basicChatModel != null) {
+                    // 降级到OLLAMA基础服务
+                    log.warn("DeepSeek高级服务不可用，降级使用OLLAMA基础服务");
+                    response = basicChatModel.chat("作为法律助手，请回答以下问题：" + question);
+                    serviceInfo = "OLLAMA基础服务 (降级)";
+                    modelInfo = "qwen2:1.5b";
+                    isDeepSeek = false;
+                } else {
+                    return new ConsultationResult(
+                        "AI法律顾问服务暂时不可用，请稍后重试。建议咨询专业律师获得法律建议。",
+                        "服务不可用",
+                        "none",
+                        false
+                    );
+                }
+                
+                // 统一记录日志
+                log.info("使用{}处理法律咨询，会话: {}", serviceInfo, sessionId);
+                
+                return new ConsultationResult(response, serviceInfo, modelInfo, isDeepSeek);
+                
+            } catch (Exception chatError) {
+                log.error("聊天调用失败：{}", chatError.getMessage());
+                return new ConsultationResult(
+                    "处理您的法律咨询时出现问题，请稍后重试。错误信息: " + chatError.getMessage(),
+                    "错误处理",
+                    "none",
+                    false
+                );
+            }
+            
+        } catch (Exception e) {
+            log.error("法律咨询处理失败，会话ID: {}", sessionId, e);
+            
+            return new ConsultationResult(
+                "处理您的法律咨询时出现问题，请稍后重试。如需紧急法律援助，建议直接咨询专业律师。错误信息: " + e.getMessage(),
+                "异常处理",
+                "none",
+                false
+            );
+        }
+    }
     
     /**
      * 智能法律咨询（指定会话）
@@ -304,6 +467,8 @@ public class AgentService {
      * @param question 法律问题
      * @param sessionId 会话 ID，用于区分不同用户/会话
      */
+    @CircuitBreaker(name = "aiService", fallbackMethod = "consultLegalMatterFallback")
+    @Retry(name = "aiService")
     public String consultLegalMatter(String question, String sessionId) {
         log.info("处理法律咨询请求: {}, 会话ID: {}", 
                 question.length() > 50 ? question.substring(0, 50) + "..." : question, sessionId);
@@ -313,17 +478,20 @@ public class AgentService {
                 return "请提供具体的法律问题，我将为您提供专业的咨询建议。";
             }
             
-            // 临时解决方案：直接使用基础ChatModel，绕过Agent复杂逻辑
+            // 高级法律咨询：优先使用DeepSeek，降级到OLLAMA
             String response;
             String serviceInfo;
             
             try {
-                if (basicChatModel != null) {
-                    response = basicChatModel.chat("作为法律助手，请回答以下问题：" + question);
-                    serviceInfo = "OLLAMA基础服务 (qwen2:1.5b)";
-                } else if (advancedChatModel != null) {
-                    response = advancedChatModel.chat("作为法律助手，请回答以下问题：" + question);
+                if (advancedChatModel != null) {
+                    // 使用DeepSeek高级服务进行法律咨询
+                    response = advancedChatModel.chat("作为专业法律助手，请提供准确、详细的法律建议：" + question);
                     serviceInfo = "DEEPSEEK高级服务 (deepseek-chat)";
+                } else if (basicChatModel != null) {
+                    // 降级到OLLAMA基础服务
+                    log.warn("DeepSeek高级服务不可用，降级使用OLLAMA基础服务");
+                    response = basicChatModel.chat("作为法律助手，请回答以下问题：" + question);
+                    serviceInfo = "OLLAMA基础服务 (qwen2:1.5b) [降级]";
                 } else {
                     return "AI法律顾问服务暂时不可用，请稍后重试。建议咨询专业律师获得法律建议。";
                 }
@@ -364,6 +532,184 @@ public class AgentService {
     }
     
     /**
+     * 分析合同的关键条款（专用方法）
+     * 识别并分析合同中的重要条款，如合同标的、履行期限、价款支付、违约责任等
+     * 
+     * @param contractContent 合同内容
+     * @return 关键条款分析结果（JSON格式字符串）
+     */
+    @CircuitBreaker(name = "aiService", fallbackMethod = "analyzeKeyClausesFallback")
+    @Retry(name = "aiService")
+    public String analyzeKeyClauses(String contractContent) {
+        log.info("开始分析合同关键条款，内容长度: {}", contractContent.length());
+        
+        try {
+            if (contractContent.trim().isEmpty()) {
+                return "{\"error\": \"合同内容为空\"}";
+            }
+            
+            // 使用模板构建关键条款分析的提示词
+            String contractContentTruncated = contractContent.length() > 8000 ? 
+                contractContent.substring(0, 8000) + "...[已截取]" : 
+                contractContent;
+            
+            String question = promptTemplateService.render("key-clauses-analysis", 
+                Map.of("contractContent", contractContentTruncated));
+            
+            // 关键条款分析属于高级任务，使用高级AI服务
+            TaskComplexity complexity = TaskComplexity.ADVANCED;
+            LegalAssistant selectedAssistant = selectAppropriateAssistant(complexity);
+            
+            if (selectedAssistant == null) {
+                log.warn("AI服务不可用，返回降级响应");
+                return "{\"error\": \"AI分析服务暂时不可用\"}";
+            }
+            
+            // 调用AI进行分析
+            String response = selectedAssistant.analyzeContractMatter(contractContent, question);
+            
+            // 清理和验证JSON响应
+            String cleanedResponse = cleanJsonResponse(response);
+            
+            log.info("关键条款分析完成，原始响应长度: {}, 清理后长度: {}", 
+                response != null ? response.length() : 0, 
+                cleanedResponse != null ? cleanedResponse.length() : 0);
+            
+            return cleanedResponse;
+            
+        } catch (Exception e) {
+            log.error("关键条款分析失败", e);
+            return "{\"error\": \"分析过程中发生错误: " + e.getMessage() + "\"}";
+        }
+    }
+    
+    /**
+     * 清理AI响应，提取JSON部分
+     * AI有时会返回包含解释文字的响应，需要提取其中的JSON
+     */
+    private String cleanJsonResponse(String response) {
+        if (response == null || response.trim().isEmpty()) {
+            log.warn("AI返回空响应");
+            return createFallbackJsonResponse("AI返回空响应");
+        }
+        
+        log.debug("开始清理AI响应，原始长度: {}, 前100字符: {}", 
+            response.length(), 
+            response.length() > 100 ? response.substring(0, 100) + "..." : response);
+        
+        String cleaned = response.trim();
+        
+        // 检查是否包含明显的非JSON内容（如"我需要"、"请提供"等）
+        if (cleaned.contains("我需要") || cleaned.contains("请提供") || 
+            cleaned.contains("您提到") || cleaned.contains("但还没有")) {
+            log.warn("AI返回的是解释性文字而非JSON格式，原始响应: {}", 
+                response.substring(0, Math.min(200, response.length())));
+            return createFallbackJsonResponse("AI未按要求返回JSON格式");
+        }
+        
+        // 尝试提取JSON部分（在```json 和 ``` 之间，或直接的{}包裹）
+        if (cleaned.contains("```json")) {
+            int startIdx = cleaned.indexOf("```json") + 7;
+            int endIdx = cleaned.indexOf("```", startIdx);
+            if (endIdx > startIdx) {
+                cleaned = cleaned.substring(startIdx, endIdx).trim();
+                log.debug("从markdown代码块中提取JSON");
+            }
+        } else if (cleaned.contains("```")) {
+            // 处理不带json标记的代码块
+            int startIdx = cleaned.indexOf("```") + 3;
+            int endIdx = cleaned.indexOf("```", startIdx);
+            if (endIdx > startIdx) {
+                cleaned = cleaned.substring(startIdx, endIdx).trim();
+                log.debug("从普通代码块中提取JSON");
+            }
+        }
+        
+        // 查找第一个 { 和最后一个 }
+        int firstBrace = cleaned.indexOf('{');
+        int lastBrace = cleaned.lastIndexOf('}');
+        
+        if (firstBrace != -1 && lastBrace != -1 && lastBrace > firstBrace) {
+            cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+            log.debug("提取JSON对象: {}...{}", 
+                cleaned.substring(0, Math.min(50, cleaned.length())),
+                cleaned.length() > 50 ? "..." : "");
+        } else {
+            log.warn("响应中未找到有效的JSON结构，原始响应: {}", 
+                response.substring(0, Math.min(200, response.length())));
+            return createFallbackJsonResponse("响应中未找到有效的JSON结构");
+        }
+        
+        // 验证是否为有效JSON
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode jsonNode = mapper.readTree(cleaned);
+            
+            // 验证必要字段是否存在
+            if (!jsonNode.has("keyClauses")) {
+                log.warn("JSON缺少keyClauses字段，将添加默认结构");
+                return createFallbackJsonResponse("AI返回的JSON缺少必要字段");
+            }
+            
+            log.info("JSON格式验证成功，包含 {} 个关键条款", 
+                jsonNode.get("keyClauses").size());
+            return cleaned;
+        } catch (Exception e) {
+            log.warn("JSON格式验证失败: {}, 原始内容: {}", e.getMessage(), 
+                cleaned.substring(0, Math.min(100, cleaned.length())));
+            return createFallbackJsonResponse("JSON格式验证失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 创建降级JSON响应
+     * 当AI没有返回有效JSON时，提供一个基础的JSON结构
+     */
+    private String createFallbackJsonResponse(String reason) {
+        return String.format("""
+            {
+              "keyClauses": [
+                {
+                  "title": "系统提示",
+                  "content": "AI分析服务暂时无法提供详细的关键条款分析",
+                  "analysis": "%s，建议重试或人工审查",
+                  "importance": "HIGH",
+                  "isComplete": false,
+                  "suggestion": "建议稍后重试AI分析，或咨询专业律师进行人工审查"
+                }
+              ],
+              "completenessScore": 0,
+              "overallAssessment": "由于AI服务异常，无法完成关键条款分析。建议重试或寻求专业法律意见。"
+            }
+            """, reason);
+    }
+    
+    /**
+     * analyzeKeyClauses 的降级方法
+     */
+    private String analyzeKeyClausesFallback(String contractContent, Throwable t) {
+        log.warn("关键条款分析服务暂时不可用，触发降级处理，合同长度: {}, 原因: {}", 
+                contractContent.length(), t.getMessage());
+        
+        return """
+            {
+              "keyClauses": [
+                {
+                  "title": "服务降级提示",
+                  "content": "AI分析服务暂时不可用",
+                  "analysis": "建议稍后重试或人工审查",
+                  "importance": "HIGH",
+                  "isComplete": false,
+                  "suggestion": "请联系专业律师进行人工审查"
+                }
+              ],
+              "completenessScore": 0,
+              "overallAssessment": "AI服务暂时不可用，无法完成关键条款分析。建议将合同提交给专业律师进行详细审查。"
+            }
+            """;
+    }
+
+    /**
      * 合同条款专项分析（指定会话）
      * 混合AI架构：合同分析属于高级任务，优先使用高级AI服务
      * 
@@ -371,8 +717,10 @@ public class AgentService {
      * @param question 具体问题
      * @param sessionId 会话 ID，用于区分不同用户/会话
      */
+    @CircuitBreaker(name = "aiService", fallbackMethod = "analyzeContractMatterFallback")
+    @Retry(name = "aiService")
     public String analyzeContractMatter(String contractContent, String question, String sessionId) {
-        log.info("处理合同分析请求，内容长度: {}, 问题: {}, 会话ID: {}", 
+        log.debug("处理合同分析请求，内容长度: {}, 问题: {}, 会话ID: {}", 
                 contractContent.length(), 
                 question != null ? (question.length() > 30 ? question.substring(0, 30) + "..." : question) : "通用分析",
                 sessionId);
@@ -396,7 +744,7 @@ public class AgentService {
             
             // 记录使用的AI服务
             String serviceInfo = getSelectedServiceInfo(selectedAssistant);
-            log.info("使用{}处理合同分析，内容长度: {}, 会话: {}", serviceInfo, contractContent.length(), sessionId);
+            log.debug("使用{}处理合同分析，内容长度: {}, 会话: {}", serviceInfo, contractContent.length(), sessionId);
             
             // 调用选定的AI服务
             String response = selectedAssistant.analyzeContractMatter(contractContent, question);
@@ -406,7 +754,7 @@ public class AgentService {
                 response += "\n\n[调试信息：" + serviceInfo + "，内容长度：" + contractContent.length() + "字符]";
             }
             
-            log.info("合同分析响应生成成功，服务: {}, 会话: {}", serviceInfo, sessionId);
+            log.debug("合同分析响应生成成功，服务: {}, 会话: {}", serviceInfo, sessionId);
             return response;
             
         } catch (Exception e) {
@@ -448,6 +796,8 @@ public class AgentService {
      * 直接与底层模型对话（不使用工具）
      * 用于简单对话或调试，优先使用基础服务
      */
+    @CircuitBreaker(name = "aiService", fallbackMethod = "directChatFallback")
+    @Retry(name = "aiService")
     public String directChat(String message) {
         log.info("处理直接聊天请求: {}", message);
         
@@ -489,6 +839,72 @@ public class AgentService {
             
             return "聊天服务暂时不可用，请稍后重试。";
         }
+    }
+
+    /**
+     * 专门用于报告生成的直接对话方法（不使用工具调用，避免工具调用问题）
+     * 优先使用高级服务（DeepSeek），确保报告质量
+     * 
+     * @param message 完整的提示词（包含合同内容和分析任务）
+     * @return AI生成的报告内容
+     */
+    @CircuitBreaker(name = "aiService", fallbackMethod = "directChatForReportFallback")
+    @Retry(name = "aiService")
+    public String directChatForReport(String message) {
+        log.debug("处理报告生成请求，内容长度: {}", message.length());
+        
+        try {
+            ChatModel selectedModel = null;
+            String serviceInfo = "";
+            
+            // 优先使用高级服务（DeepSeek）生成报告，确保质量
+            if (advancedServiceAvailable && advancedChatModel != null) {
+                selectedModel = advancedChatModel;
+                serviceInfo = String.format("%s高级服务 (%s)", advancedProvider.toUpperCase(), advancedModelName);
+            } else if (basicServiceAvailable && basicChatModel != null) {
+                // 降级到基础服务
+                selectedModel = basicChatModel;
+                serviceInfo = String.format("%s基础服务 (%s)", basicProvider.toUpperCase(), basicModelName);
+                log.warn("高级服务不可用，降级使用基础服务生成报告");
+            }
+            
+            if (selectedModel == null) {
+                throw new RuntimeException("所有AI服务不可用");
+            }
+            
+            log.debug("使用{}生成报告内容", serviceInfo);
+            String response = selectedModel.chat(message);
+            
+            if (response == null || response.trim().isEmpty()) {
+                throw new RuntimeException("AI返回空响应");
+            }
+            
+            log.debug("报告内容生成成功，服务: {}, 响应长度: {}", serviceInfo, response.length());
+            return response;
+            
+        } catch (Exception e) {
+            log.error("报告生成失败: {}", e.getMessage());
+            throw new RuntimeException("报告生成失败: " + e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * directChatForReport 的降级方法
+     */
+    private String directChatForReportFallback(String message, Throwable t) {
+        log.warn("报告生成服务触发降级, 原因: {}", t.getMessage());
+        
+        // 尝试使用备用服务
+        try {
+            if (basicServiceAvailable && basicChatModel != null) {
+                log.info("使用基础服务作为降级方案");
+                return basicChatModel.chat(message);
+            }
+        } catch (Exception fallbackError) {
+            log.error("降级方案也失败了: {}", fallbackError.getMessage());
+        }
+        
+        return "报告内容生成失败，AI服务暂时不可用。";
     }
 
     
@@ -624,7 +1040,7 @@ public class AgentService {
 
             @Override
             public String analyzeContractMatter(String contractContent, String question) {
-                log.info("简化模式处理合同分析，内容长度: {}", contractContent.length());
+                log.debug("简化模式处理合同分析，内容长度: {}", contractContent.length());
                 
                 try {
                     // 提取合同关键词进行搜索
@@ -650,5 +1066,268 @@ public class AgentService {
                 }
             }
         };
+    }
+
+    /**
+     * 流式法律咨询
+     * 通过SSE实时推送响应内容
+     * 
+     * @param question 法律问题
+     * @param emitter SSE发射器
+     * @param responseBuilder 用于累积完整响应的StringBuilder（用于保存历史记录）
+     */
+    public void consultLegalMatterStream(String question, org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter, StringBuilder responseBuilder) {
+        // 异步执行，使用支持SecurityContext的执行器，避免阻塞请求线程
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                log.info("🚀 开始流式法律咨询处理: question='{}', length={}", question, question.length());
+                
+                // 基础参数检查
+                if (question == null || question.trim().isEmpty()) {
+                    log.warn("❌ 问题为空，终止流式处理");
+                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                        .data(java.util.Map.of("type", "error", "error", "问题不能为空")));
+                    emitter.complete();
+                    return;
+                }
+                
+                // 发送开始事件（可选，前端可能不需要）
+                // 注释掉以减少不必要的事件
+                // emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                //     .data(java.util.Map.of(
+                //         "type", "start",
+                //         "message", "开始处理您的法律咨询..."
+                //     )));
+                
+                // 检查服务可用性
+                log.debug("🔍 检查服务可用性: advanced={}, basic={}", advancedServiceAvailable, basicServiceAvailable);
+                if (!advancedServiceAvailable && !basicServiceAvailable) {
+                    log.error("❌ 所有AI服务不可用");
+                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                        .data(java.util.Map.of("type", "error", "error", "所有AI服务暂时不可用，请稍后重试")));
+                    emitter.complete();
+                    return;
+                }
+                
+                // 使用流式模型进行流式调用
+                if (advancedStreamingModel != null) {
+                    log.info("使用高级流式模型进行推送");
+                    streamWithModel(advancedStreamingModel, question, emitter, responseBuilder);
+                } else if (basicStreamingModel != null) {
+                    log.info("高级流式模型不可用，使用基础流式模型进行推送");
+                    streamWithModel(basicStreamingModel, question, emitter, responseBuilder);
+                } else {
+                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                        .data(java.util.Map.of("type", "error", "error", "没有可用的流式AI模型")));
+                    emitter.complete();
+                }
+                
+            } catch (Exception e) {
+                log.error("流式法律咨询处理失败", e);
+                try {
+                    emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                        .data(java.util.Map.of("type", "error", "error", "处理失败: " + e.getMessage())));
+                    emitter.completeWithError(e);
+                } catch (Exception sendError) {
+                    log.error("发送错误事件失败", sendError);
+                }
+            }
+        }, taskExecutor);
+    }
+    
+    /**
+     * 使用指定流式模型进行流式推送
+     * 使用LangChain4j官方的StreamingChatModel和StreamingChatResponseHandler
+     */
+    private void streamWithModel(StreamingChatModel streamingModel, String question, 
+                                 org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter,
+                                 StringBuilder responseBuilder) {
+        try {
+            log.info("📡 开始使用流式模型处理: model={}", streamingModel.getClass().getSimpleName());
+            
+            // 构建完整的提示
+            String fullPrompt = "作为专业法律助手，请提供准确、详细的法律建议：" + question;
+            log.debug("📝 构建完整提示: length={}, prompt='{}'", 
+                    fullPrompt.length(), 
+                    fullPrompt.length() > 100 ? fullPrompt.substring(0, 100) + "..." : fullPrompt);
+            
+            // 流式生成响应
+            StringBuilder fullResponse = new StringBuilder();
+            
+            // 获取当前SecurityContext，用于传递到回调方法中
+            SecurityContext currentSecurityContext = SecurityContextHolder.getContext();
+            log.debug("🔐 获取SecurityContext: {}", currentSecurityContext != null ? "成功" : "失败");
+            
+            // 使用LangChain4j的StreamingChatResponseHandler
+            // 将字符串包装成UserMessage并放入列表中
+            streamingModel.chat(
+                java.util.List.of(UserMessage.from(fullPrompt)), 
+                new StreamingChatResponseHandler() {
+                
+                @Override
+                public void onPartialResponse(String partialResponse) {
+                    // 在回调中设置SecurityContext
+                    SecurityContext originalContext = SecurityContextHolder.getContext();
+                    try {
+                        SecurityContextHolder.setContext(currentSecurityContext);
+                        
+                        fullResponse.append(partialResponse);
+                        // 同时累积到外部传入的responseBuilder（用于保存历史记录）
+                        if (responseBuilder != null) {
+                            responseBuilder.append(partialResponse);
+                        }
+                        
+                        // 记录详细的发送信息
+                        log.debug("📤 发送内容片段: length={}, content='{}'", 
+                                partialResponse.length(), 
+                                partialResponse.length() > 50 ? 
+                                    partialResponse.substring(0, 50) + "..." : partialResponse);
+                        
+                        // 发送内容片段，使用前端期望的格式
+                        var dataMap = java.util.Map.of("type", "content", "content", partialResponse);
+                        log.debug("📦 发送SSE数据: {}", dataMap);
+                        
+                        emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                            .data(dataMap));
+                            
+                        log.debug("✅ 内容片段发送成功");
+                    } catch (Exception e) {
+                        log.error("❌ 发送内容片段失败", e);
+                    } finally {
+                        // 恢复原始SecurityContext
+                        SecurityContextHolder.setContext(originalContext);
+                    }
+                }
+                
+                @Override
+                public void onCompleteResponse(ChatResponse response) {
+                    // 在回调中设置SecurityContext
+                    SecurityContext originalContext = SecurityContextHolder.getContext();
+                    try {
+                        SecurityContextHolder.setContext(currentSecurityContext);
+                        
+                        log.info("流式响应完成，总长度: {}", fullResponse.length());
+                        
+                        // 发送完成事件，使用前端期望的格式
+                        emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                            .data(java.util.Map.of(
+                                "type", "complete",
+                                "message", "响应完成",
+                                "totalLength", fullResponse.length()
+                            )));
+                        
+                        emitter.complete();
+                    } catch (Exception e) {
+                        log.error("发送完成事件失败", e);
+                        emitter.completeWithError(e);
+                    } finally {
+                        // 恢复原始SecurityContext
+                        SecurityContextHolder.setContext(originalContext);
+                    }
+                }
+                
+                @Override
+                public void onError(Throwable error) {
+                    // 在回调中设置SecurityContext
+                    SecurityContext originalContext = SecurityContextHolder.getContext();
+                    try {
+                        SecurityContextHolder.setContext(currentSecurityContext);
+                        
+                        log.error("流式生成出错", error);
+                        emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                            .data(java.util.Map.of("type", "error", "error", "生成失败: " + error.getMessage())));
+                        emitter.completeWithError(error);
+                    } catch (Exception e) {
+                        log.error("发送错误事件失败", e);
+                    } finally {
+                        // 恢复原始SecurityContext
+                        SecurityContextHolder.setContext(originalContext);
+                    }
+                }
+            });
+            
+        } catch (Exception e) {
+            log.error("流式模型调用失败", e);
+            try {
+                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                    .data(java.util.Map.of("type", "error", "error", "模型调用失败: " + e.getMessage())));
+                emitter.completeWithError(e);
+            } catch (Exception sendError) {
+                log.error("发送错误事件失败", sendError);
+            }
+        }
+    }
+    
+    // ==================== Resilience4j 降级方法 ====================
+    
+    /**
+     * consultLegalMatterWithDetails 的降级方法
+     */
+    private ConsultationResult consultLegalMatterWithDetailsFallback(String question, String sessionId, Throwable t) {
+        log.warn("法律咨询服务（详细版）触发降级: sessionId={}, 原因: {}", sessionId, t.getMessage());
+        
+        return new ConsultationResult(
+            "抱歉，AI法律顾问服务当前繁忙或暂时不可用。\n\n" +
+            "**建议措施：**\n" +
+            "1. 请稍后（3-5分钟）重试\n" +
+            "2. 如有紧急法律咨询需求，建议直接联系专业律师\n" +
+            "3. 您也可以查阅本系统的法律文档库获取基础信息\n\n" +
+            "系统正在努力恢复服务，感谢您的耐心等待。",
+            "服务降级",
+            "none",
+            false
+        );
+    }
+    
+    /**
+     * consultLegalMatter 的降级方法
+     */
+    private String consultLegalMatterFallback(String question, String sessionId, Throwable t) {
+        log.warn("法律咨询服务触发降级: sessionId={}, 原因: {}", sessionId, t.getMessage());
+        
+        return "抱歉，AI法律顾问服务当前繁忙或暂时不可用。\n\n" +
+               "建议措施：\n" +
+               "1. 请稍后重试\n" +
+               "2. 如有紧急需求，建议联系专业律师\n" +
+               "3. 可查阅系统法律文档库获取基础信息\n\n" +
+               "系统正在恢复中，感谢您的耐心。";
+    }
+    
+    /**
+     * analyzeContractMatter 的降级方法
+     */
+    private String analyzeContractMatterFallback(String contractContent, String question, 
+                                                  String sessionId, Throwable t) {
+        log.warn("合同分析服务触发降级: sessionId={}, 合同长度={}, 原因: {}", 
+                sessionId, contractContent.length(), t.getMessage());
+        
+        return "### 合同分析服务暂时不可用\n\n" +
+               "由于AI合同分析服务当前繁忙，暂时无法完成智能分析。\n\n" +
+               "**建议措施：**\n" +
+               "1. **稍后重试**：请在5-10分钟后重新提交分析请求\n" +
+               "2. **专业审查**：强烈建议将合同提交给专业律师进行详细审查\n" +
+               "3. **基础检查**：您可以先自行核对以下要素：\n" +
+               "   - 合同双方信息是否准确完整\n" +
+               "   - 合同标的、价款、期限是否明确\n" +
+               "   - 违约责任条款是否清晰\n" +
+               "   - 争议解决方式是否约定\n\n" +
+               "**合同基本信息：**\n" +
+               "- 内容长度：" + contractContent.length() + " 字符\n" +
+               "- 分析问题：" + (question != null ? question : "通用风险分析") + "\n" +
+               "- 服务状态：降级中\n\n" +
+               "如需紧急处理，请联系专业法律顾问或技术支持。";
+    }
+    
+    /**
+     * directChat 的降级方法
+     */
+    private String directChatFallback(String message, Throwable t) {
+        log.warn("直接聊天服务触发降级, 原因: {}", t.getMessage());
+        
+        return "抱歉，聊天服务当前繁忙，暂时无法响应。请稍后重试。\n\n" +
+               "如有紧急需求，建议：\n" +
+               "- 稍后（3-5分钟）重新尝试\n" +
+               "- 联系系统管理员或技术支持\n" +
+               "- 使用其他可用的功能模块";
     }
 }

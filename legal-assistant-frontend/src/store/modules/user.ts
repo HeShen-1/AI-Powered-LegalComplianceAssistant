@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { User } from '@/types/api'
-import { loginApi } from '@/api/userService'
+import { loginApi, getUserInfoApi, refreshTokenApi, logoutApi } from '@/api/authService'
 import { ElMessage } from 'element-plus'
 
 export const useUserStore = defineStore('user', () => {
@@ -42,65 +42,45 @@ export const useUserStore = defineStore('user', () => {
   // 登录
   const login = async (username: string, password: string) => {
     try {
-      // 演示环境：支持演示账户登录
-      if ((username === 'demo' || username === 'admin') && password === '123456') {
-        // 生成演示 token
-        const demoToken = btoa(`${username}:${password}`)
-        token.value = demoToken
-        localStorage.setItem('auth_token', token.value)
-        
-        // 设置演示用户信息
-        const demoUser = {
-          id: username === 'admin' ? 1 : 2,
-          username: username,
-          email: `${username}@example.com`,
-          fullName: username === 'admin' ? '系统管理员' : '演示用户',
-          role: username === 'admin' ? 'ADMIN' as const : 'USER' as const,
-          enabled: true,
-          createdAt: new Date().toISOString()
-        }
-        userInfo.value = demoUser
-        localStorage.setItem('user_info', JSON.stringify(userInfo.value))
-        
-        ElMessage.success('登录成功')
-        // 跳转到首页（避免循环依赖）
-        if (typeof window !== 'undefined') {
-          window.location.href = '/'
-        }
-        return
-      }
-
-      // 实际环境：调用后端API
+      // 调用后端API登录（包括演示账户也使用真实的JWT token）
       const response = await loginApi({ username, password })
       
-      // 处理登录响应 - 根据后端实际返回格式调整
-      const authToken = response.headers?.authorization || 
-                       response.data?.token || 
-                       btoa(`${username}:${password}`) // Basic Auth fallback
+      // 后端使用ApiResponse包装，所以数据在response.data.data中
+      let responseToken = null
+      let responseUser = null
       
-      if (authToken) {
-        token.value = authToken.replace('Bearer ', '').replace('Basic ', '')
+      if (response.data && (response.data as any).success) {
+        // 从ApiResponse的data字段中提取
+        const apiData = (response.data as any).data
+        if (apiData) {
+          responseToken = apiData.token
+          responseUser = apiData.user
+        }
+      }
+      
+      if (responseToken) {
+        token.value = responseToken
         localStorage.setItem('auth_token', token.value)
         
-        // 获取用户信息
-        await fetchUserInfo()
+        // 设置用户信息
+        if (responseUser) {
+          userInfo.value = responseUser
+          localStorage.setItem('user_info', JSON.stringify(userInfo.value))
+        }
         
         ElMessage.success('登录成功')
-        // 跳转到首页（避免循环依赖）
-        if (typeof window !== 'undefined') {
-          window.location.href = '/'
-        }
+        return { success: true }
       } else {
-        throw new Error('登录失败：未获取到有效token')
+        throw new Error('登录失败：未收到有效的认证令牌')
       }
     } catch (error: any) {
       console.error('Login failed:', error)
       
-      // 如果是网络错误，提示用户可以使用演示账户
+      // 如果是网络错误
       if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
-        ElMessage.error('无法连接到服务器，您可以使用演示账户：demo/123456 或 admin/123456')
+        ElMessage.error('无法连接到后端服务，请确保后端应用已启动（http://localhost:8080）')
       } else {
-        ElMessage.error(error.response?.data?.message || '登录失败')
+        ElMessage.error(error.response?.data?.message || '登录失败，请检查用户名和密码')
       }
       throw error
     }
@@ -110,22 +90,11 @@ export const useUserStore = defineStore('user', () => {
   const fetchUserInfo = async () => {
     if (!userInfo.value?.id && token.value) {
       try {
-        // 在实际项目中，这里应该调用获取当前用户信息的API
-        // 目前先跳过，避免因为后端API不存在而导致错误
-        console.log('fetchUserInfo: 跳过获取用户信息，等待后端API就绪')
-        
-        // 临时设置一个默认用户信息用于演示
-        const demoUser = {
-          id: 1,
-          username: 'demo_user',
-          email: 'demo@example.com',
-          fullName: '演示用户',
-          role: 'USER' as 'USER' | 'ADMIN',
-          enabled: true,
-          createdAt: new Date().toISOString()
+        const response = await getUserInfoApi()
+        if (response.data) {
+          userInfo.value = response.data
+          localStorage.setItem('user_info', JSON.stringify(userInfo.value))
         }
-        userInfo.value = demoUser
-        localStorage.setItem('user_info', JSON.stringify(userInfo.value))
       } catch (error) {
         console.error('Failed to fetch user info:', error)
         // 如果获取用户信息失败，可能token已过期
@@ -134,16 +103,38 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  // 刷新Token
+  const refreshToken = async () => {
+    try {
+      const response = await refreshTokenApi()
+      if (response.data.success && response.data.token) {
+        token.value = response.data.token
+        localStorage.setItem('auth_token', token.value)
+        return true
+      }
+      return false
+    } catch (error) {
+      console.error('Token refresh failed:', error)
+      logout()
+      return false
+    }
+  }
+
   // 登出
-  const logout = () => {
-    token.value = ''
-    userInfo.value = null
-    localStorage.removeItem('auth_token')
-    localStorage.removeItem('user_info')
-    
-    // 跳转到登录页（避免循环依赖，由调用方处理）
-    if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-      window.location.href = '/login'
+  const logout = async () => {
+    try {
+      // 调用后端登出API
+      if (token.value) {
+        await logoutApi()
+      }
+    } catch (error) {
+      console.error('Logout API failed:', error)
+    } finally {
+      // 清除本地状态
+      token.value = ''
+      userInfo.value = null
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('user_info')
     }
   }
 
@@ -164,6 +155,7 @@ export const useUserStore = defineStore('user', () => {
     initializeAuth,
     login,
     logout,
+    refreshToken,
     fetchUserInfo,
     updateUserInfo
   }

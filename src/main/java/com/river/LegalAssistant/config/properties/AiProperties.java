@@ -32,7 +32,7 @@ public class AiProperties {
         /**
          * 聊天模型
          */
-        private String chat = "qwen3:8b";
+        private String chat = "qwen2:1.5b";
         
         /**
          * 嵌入模型

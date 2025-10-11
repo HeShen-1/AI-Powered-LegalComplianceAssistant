@@ -1,165 +1,261 @@
 <template>
-  <div class="admin-users-container">
+  <div class="users-container">
     <el-card shadow="never">
       <template #header>
-        <div class="card-header">
-          <div>
-            <h3>用户管理</h3>
-            <p>管理系统中的所有用户账户</p>
+        <div class="page-header">
+          <div class="header-left">
+            <h3>👥 用户管理</h3>
+            <p class="header-subtitle">管理系统用户账户和权限</p>
           </div>
-          <el-button type="primary" @click="showAddUser = true">
-            <el-icon><Plus /></el-icon>
-            添加用户
-          </el-button>
+          <div class="header-right">
+            <el-button type="primary" @click="showAddDialog = true">
+              <el-icon><Plus /></el-icon>
+              添加用户
+            </el-button>
+            <el-button @click="refreshList">
+              <el-icon><Refresh /></el-icon>
+              刷新
+            </el-button>
+          </div>
         </div>
       </template>
-
+      
       <!-- 搜索和筛选 -->
-      <div class="filter-section">
-        <el-form inline>
-          <el-form-item>
+      <div class="search-section">
+        <el-row :gutter="20">
+          <el-col :xs="24" :sm="12" :md="6">
             <el-input
-              v-model="searchKeyword"
+              v-model="searchQuery"
               placeholder="搜索用户名或邮箱..."
-              :prefix-icon="Search"
               clearable
               @input="handleSearch"
-            />
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="filters.role" placeholder="角色筛选" clearable>
-              <el-option label="全部角色" value="" />
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="5">
+            <el-select
+              v-model="roleFilter"
+              placeholder="角色筛选"
+              clearable
+              @change="handleFilter"
+              style="width: 100%"
+            >
+              <el-option label="全部" value="" />
               <el-option label="管理员" value="ADMIN" />
               <el-option label="普通用户" value="USER" />
             </el-select>
-          </el-form-item>
-          <el-form-item>
-            <el-select v-model="filters.enabled" placeholder="状态筛选" clearable>
-              <el-option label="全部状态" value="" />
-              <el-option label="已启用" :value="true" />
-              <el-option label="已禁用" :value="false" />
-            </el-select>
-          </el-form-item>
-        </el-form>
-      </div>
-
-      <!-- 用户表格 -->
-      <el-table :data="users" :loading="loading" stripe>
-        <el-table-column prop="id" label="ID" width="80" />
-        
-        <el-table-column prop="username" label="用户名" min-width="120">
-          <template #default="{ row }">
-            <div class="user-info">
-              <el-avatar :size="32" :src="row.avatar">
-                <el-icon><UserFilled /></el-icon>
-              </el-avatar>
-              <span>{{ row.username }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="fullName" label="真实姓名" min-width="100" />
-        <el-table-column prop="email" label="邮箱" min-width="180" />
-        
-        <el-table-column prop="role" label="角色" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.role === 'ADMIN' ? 'danger' : 'primary'">
-              {{ row.role === 'ADMIN' ? '管理员' : '普通用户' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="enabled" label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.enabled ? 'success' : 'danger'">
-              {{ row.enabled ? '已启用' : '已禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        
-        <el-table-column prop="createdAt" label="注册时间" width="180">
-          <template #default="{ row }">
-            {{ formatDateTime(row.createdAt) }}
-          </template>
-        </el-table-column>
-        
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button text type="primary" @click="editUser(row)">
-              编辑
-            </el-button>
-            <el-button
-              text
-              :type="row.enabled ? 'warning' : 'success'"
-              @click="toggleUserStatus(row)"
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="5">
+            <el-select
+              v-model="statusFilter"
+              placeholder="状态筛选"
+              clearable
+              @change="handleFilter"
+              style="width: 100%"
             >
-              {{ row.enabled ? '禁用' : '启用' }}
-            </el-button>
-            <el-button text type="danger" @click="deleteUser(row)">
-              删除
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <!-- 分页 -->
-      <div class="pagination-wrapper">
-        <el-pagination
-          v-model:current-page="pagination.page"
-          v-model:page-size="pagination.size"
-          :page-sizes="[10, 20, 50]"
-          :total="total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="loadUsers"
-          @current-change="loadUsers"
-        />
+              <el-option label="全部" value="" />
+              <el-option label="正常" value="true" />
+              <el-option label="禁用" value="false" />
+            </el-select>
+          </el-col>
+          <el-col :xs="24" :sm="24" :md="8">
+            <el-date-picker
+              v-model="dateRange"
+              type="daterange"
+              range-separator="至"
+              start-placeholder="开始日期"
+              end-placeholder="结束日期"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              :unlink-panels="true"
+              style="width: 100%"
+              @change="handleFilter"
+            />
+          </el-col>
+        </el-row>
+      </div>
+      
+      <!-- 用户表格 -->
+      <div class="table-section">
+        <el-table
+          v-loading="loading"
+          :data="filteredUsers"
+          stripe
+          @sort-change="handleSortChange"
+        >
+          <el-table-column type="selection" width="55" />
+          
+          <el-table-column prop="id" label="ID" width="80" sortable="custom" />
+          
+          <el-table-column prop="username" label="用户名" min-width="120">
+            <template #default="{ row }">
+              <div class="user-info">
+                <el-avatar :size="32">
+                  <el-icon><User /></el-icon>
+                </el-avatar>
+                <div class="user-details">
+                  <div class="username">{{ row.username }}</div>
+                  <div class="fullname">{{ row.fullName }}</div>
+                </div>
+              </div>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="email" label="邮箱" min-width="180" />
+          
+          <el-table-column prop="role" label="角色" width="100" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.role === 'ADMIN' ? 'danger' : 'primary'" size="small">
+                {{ row.role === 'ADMIN' ? '管理员' : '普通用户' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column prop="enabled" label="状态" width="80" align="center">
+            <template #default="{ row }">
+              <el-tag :type="row.enabled ? 'success' : 'danger'" size="small">
+                {{ row.enabled ? '正常' : '禁用' }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          
+          <el-table-column
+            prop="createdAt"
+            label="注册时间"
+            width="160"
+            sortable="custom"
+          >
+            <template #default="{ row }">
+              {{ formatDateTime(row.createdAt) }}
+            </template>
+          </el-table-column>
+          
+          <el-table-column label="操作" width="200" align="center" fixed="right">
+            <template #default="{ row }">
+              <el-button
+                type="primary"
+                size="small"
+                @click="editUser(row)"
+              >
+                编辑
+              </el-button>
+              <el-button
+                :type="row.enabled ? 'warning' : 'success'"
+                size="small"
+                @click="toggleUserStatus(row)"
+              >
+                {{ row.enabled ? '禁用' : '启用' }}
+              </el-button>
+              <el-button
+                type="danger"
+                size="small"
+                @click="deleteUser(row)"
+              >
+                删除
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        
+        <!-- 分页 -->
+        <div class="pagination-section">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :total="total"
+            :page-sizes="[10, 20, 50, 100]"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
       </div>
     </el-card>
-
-    <!-- 添加/编辑用户对话框 -->
+    
+    <!-- 添加用户对话框 -->
     <el-dialog
-      v-model="showAddUser"
-      :title="editingUser ? '编辑用户' : '添加用户'"
+      v-model="showAddDialog"
+      title="添加用户"
       width="500px"
+      :close-on-click-modal="false"
     >
       <el-form
-        ref="userFormRef"
-        :model="userForm"
-        :rules="userFormRules"
+        ref="addFormRef"
+        :model="addForm"
+        :rules="userRules"
         label-width="80px"
       >
         <el-form-item label="用户名" prop="username">
-          <el-input v-model="userForm.username" :disabled="!!editingUser" />
+          <el-input v-model="addForm.username" />
         </el-form-item>
-        
-        <el-form-item label="真实姓名" prop="fullName">
-          <el-input v-model="userForm.fullName" />
-        </el-form-item>
-        
         <el-form-item label="邮箱" prop="email">
-          <el-input v-model="userForm.email" />
+          <el-input v-model="addForm.email" type="email" />
         </el-form-item>
-        
-        <el-form-item v-if="!editingUser" label="密码" prop="password">
-          <el-input v-model="userForm.password" type="password" show-password />
+        <el-form-item label="姓名" prop="fullName">
+          <el-input v-model="addForm.fullName" />
         </el-form-item>
-        
+        <el-form-item label="密码" prop="password">
+          <el-input v-model="addForm.password" type="password" show-password />
+        </el-form-item>
         <el-form-item label="角色" prop="role">
-          <el-radio-group v-model="userForm.role">
-            <el-radio label="USER">普通用户</el-radio>
-            <el-radio label="ADMIN">管理员</el-radio>
-          </el-radio-group>
+          <el-select v-model="addForm.role" style="width: 100%">
+            <el-option label="普通用户" value="USER" />
+            <el-option label="管理员" value="ADMIN" />
+          </el-select>
         </el-form-item>
-        
         <el-form-item label="状态" prop="enabled">
-          <el-switch v-model="userForm.enabled" />
+          <el-switch v-model="addForm.enabled" />
         </el-form-item>
       </el-form>
       
       <template #footer>
-        <el-button @click="cancelUserForm">取消</el-button>
-        <el-button type="primary" @click="saveUser" :loading="saving">
-          确定
+        <el-button @click="showAddDialog = false">取消</el-button>
+        <el-button type="primary" :loading="addLoading" @click="handleAddSubmit">
+          添加
+        </el-button>
+      </template>
+    </el-dialog>
+    
+    <!-- 编辑用户对话框 -->
+    <el-dialog
+      v-model="showEditDialog"
+      title="编辑用户"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="editFormRef"
+        :model="editForm"
+        :rules="editUserRules"
+        label-width="80px"
+      >
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="editForm.username" disabled />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="editForm.email" type="email" />
+        </el-form-item>
+        <el-form-item label="姓名" prop="fullName">
+          <el-input v-model="editForm.fullName" />
+        </el-form-item>
+        <el-form-item label="角色" prop="role">
+          <el-select v-model="editForm.role" style="width: 100%">
+            <el-option label="普通用户" value="USER" />
+            <el-option label="管理员" value="ADMIN" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态" prop="enabled">
+          <el-switch v-model="editForm.enabled" />
+        </el-form-item>
+      </el-form>
+      
+      <template #footer>
+        <el-button @click="showEditDialog = false">取消</el-button>
+        <el-button type="primary" :loading="editLoading" @click="handleEditSubmit">
+          保存
         </el-button>
       </template>
     </el-dialog>
@@ -167,257 +263,459 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
-import type { User } from '@/types/api'
-import { getUserInfoApi, toggleUserStatusApi } from '@/api/userService'
+import { ref, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import {
   Plus,
+  Refresh,
   Search,
-  UserFilled
+  User
 } from '@element-plus/icons-vue'
+import type { User as UserType } from '@/types/api'
+import { getAllUsersApi, registerApi, toggleUserStatusApi, deleteUserApi } from '@/api/userService'
 
-// 组件状态
+// 响应式数据
 const loading = ref(false)
-const saving = ref(false)
-const showAddUser = ref(false)
-const editingUser = ref<User | null>(null)
-const userFormRef = ref<FormInstance>()
-
-// 搜索和筛选
-const searchKeyword = ref('')
-const filters = reactive({
-  role: '',
-  enabled: ''
-})
-
-// 分页
-const pagination = reactive({
-  page: 1,
-  size: 10
-})
-
-// 数据
-const users = ref<User[]>([])
+const userList = ref<UserType[]>([])
+const searchQuery = ref('')
+const roleFilter = ref('')
+const statusFilter = ref('')
+const dateRange = ref<[string, string] | null>(null)
+const currentPage = ref(1)
+const pageSize = ref(20)
 const total = ref(0)
+const sortField = ref('')
+const sortOrder = ref('')
 
-// 用户表单
-const userForm = reactive({
+const showAddDialog = ref(false)
+const showEditDialog = ref(false)
+const addLoading = ref(false)
+const editLoading = ref(false)
+
+const addFormRef = ref<FormInstance>()
+const editFormRef = ref<FormInstance>()
+
+const addForm = ref({
   username: '',
-  fullName: '',
   email: '',
+  fullName: '',
   password: '',
   role: 'USER' as 'USER' | 'ADMIN',
   enabled: true
 })
 
+const editForm = ref({
+  id: 0,
+  username: '',
+  email: '',
+  fullName: '',
+  role: 'USER' as 'USER' | 'ADMIN',
+  enabled: true
+})
+
+// 计算属性
+const filteredUsers = computed(() => {
+  let list = [...userList.value]
+  
+  // 搜索过滤
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase()
+    list = list.filter(user => 
+      user.username.toLowerCase().includes(query) ||
+      user.email.toLowerCase().includes(query) ||
+      user.fullName.toLowerCase().includes(query)
+    )
+  }
+  
+  // 角色过滤
+  if (roleFilter.value) {
+    list = list.filter(user => user.role === roleFilter.value)
+  }
+  
+  // 状态过滤
+  if (statusFilter.value) {
+    const enabled = statusFilter.value === 'true'
+    list = list.filter(user => user.enabled === enabled)
+  }
+  
+  // 日期范围过滤
+  if (dateRange.value && dateRange.value.length === 2) {
+    const [startDate, endDate] = dateRange.value
+    list = list.filter(user => {
+      const userDate = user.createdAt.split('T')[0]
+      return userDate >= startDate && userDate <= endDate
+    })
+  }
+  
+  // 排序
+  if (sortField.value) {
+    list.sort((a, b) => {
+      const aVal = a[sortField.value as keyof UserType]
+      const bVal = b[sortField.value as keyof UserType]
+      
+      if (sortOrder.value === 'ascending') {
+        return aVal > bVal ? 1 : -1
+      } else {
+        return aVal < bVal ? 1 : -1
+      }
+    })
+  }
+  
+  return list
+})
+
 // 表单验证规则
-const userFormRules: FormRules = {
+const userRules: FormRules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
-  ],
-  fullName: [
-    { required: true, message: '请输入真实姓名', trigger: 'blur' }
+    { min: 2, max: 20, message: '用户名长度在 2 到 20 个字符', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9_]+$/, message: '用户名只能包含字母、数字和下划线', trigger: 'blur' }
   ],
   email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+  ],
+  fullName: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { min: 2, max: 10, message: '姓名长度在 2 到 10 个字符', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, message: '密码至少6位', trigger: 'blur' }
+    { min: 6, max: 20, message: '密码长度在 6 到 20 个字符', trigger: 'blur' }
+  ],
+  role: [
+    { required: true, message: '请选择角色', trigger: 'change' }
   ]
 }
 
-// 加载用户列表
-const loadUsers = async () => {
+const editUserRules: FormRules = {
+  email: [
+    { required: true, message: '请输入邮箱地址', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
+  ],
+  fullName: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { min: 2, max: 10, message: '姓名长度在 2 到 10 个字符', trigger: 'blur' }
+  ],
+  role: [
+    { required: true, message: '请选择角色', trigger: 'change' }
+  ]
+}
+
+// 工具函数
+const formatDateTime = (dateStr: string) => {
+  return new Date(dateStr).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+// 数据获取
+const fetchUserList = async () => {
   loading.value = true
   try {
-    // 这里应该调用获取用户列表的API
-    // 暂时使用模拟数据
-    users.value = [
-      {
-        id: 1,
-        username: 'admin',
-        fullName: '系统管理员',
-        email: 'admin@example.com',
-        role: 'ADMIN',
-        enabled: true,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 2,
-        username: 'user1',
-        fullName: '张三',
-        email: 'user1@example.com',
-        role: 'USER',
-        enabled: true,
-        createdAt: new Date().toISOString()
-      }
-    ] as User[]
-    total.value = users.value.length
+    // 调用真实API获取用户列表
+    const response = await getAllUsersApi()
+    
+    if (response.data) {
+      userList.value = Array.isArray(response.data) ? response.data : []
+      total.value = userList.value.length
+    } else {
+      userList.value = []
+      total.value = 0
+    }
   } catch (error) {
-    ElMessage.error('加载用户列表失败')
+    console.error('Failed to fetch user list:', error)
+    userList.value = []
+    total.value = 0
   } finally {
     loading.value = false
   }
 }
 
-// 搜索处理
-const handleSearch = () => {
-  pagination.page = 1
-  loadUsers()
+// 事件处理
+const refreshList = () => {
+  fetchUserList()
 }
 
-// 编辑用户
-const editUser = (user: User) => {
-  editingUser.value = user
-  Object.assign(userForm, {
+const handleSearch = () => {
+  // 搜索逻辑在计算属性中处理
+}
+
+const handleFilter = () => {
+  // 过滤逻辑在计算属性中处理
+}
+
+const handleSortChange = ({ prop, order }: { prop: string; order: string }) => {
+  sortField.value = prop
+  sortOrder.value = order
+}
+
+const handleSizeChange = (size: number) => {
+  pageSize.value = size
+  currentPage.value = 1
+}
+
+const handleCurrentChange = (page: number) => {
+  currentPage.value = page
+}
+
+const editUser = (user: UserType) => {
+  editForm.value = {
+    id: user.id,
     username: user.username,
-    fullName: user.fullName,
     email: user.email,
-    password: '',
+    fullName: user.fullName,
     role: user.role,
     enabled: user.enabled
-  })
-  showAddUser.value = true
-}
-
-// 切换用户状态
-const toggleUserStatus = async (user: User) => {
-  try {
-    await toggleUserStatusApi(user.id, !user.enabled)
-    user.enabled = !user.enabled
-    ElMessage.success(`用户已${user.enabled ? '启用' : '禁用'}`)
-  } catch (error) {
-    ElMessage.error('操作失败')
   }
+  showEditDialog.value = true
 }
 
-// 删除用户
-const deleteUser = async (user: User) => {
+const toggleUserStatus = async (user: UserType) => {
+  const action = user.enabled ? '禁用' : '启用'
   try {
     await ElMessageBox.confirm(
-      `确定要删除用户 "${user.username}" 吗？`,
-      '确认删除',
-      { type: 'warning' }
+      `确定要${action}用户"${user.username}"吗？`,
+      '状态变更确认',
+      {
+        confirmButtonText: `确定${action}`,
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
     )
-
-    // 这里应该调用删除API
-    ElMessage.success('用户删除成功')
-    loadUsers()
-  } catch {
-    // 用户取消
-  }
-}
-
-// 保存用户
-const saveUser = async () => {
-  if (!userFormRef.value) return
-
-  const valid = await userFormRef.value.validate().catch(() => false)
-  if (!valid) return
-
-  saving.value = true
-  try {
-    if (editingUser.value) {
-      // 编辑用户
-      ElMessage.success('用户更新成功')
-    } else {
-      // 添加用户
-      ElMessage.success('用户添加成功')
+    
+    // 调用真实API切换用户状态
+    await toggleUserStatusApi(user.id, !user.enabled)
+    
+    // 更新用户状态
+    const index = userList.value.findIndex(u => u.id === user.id)
+    if (index > -1) {
+      userList.value[index].enabled = !user.enabled
     }
     
-    showAddUser.value = false
-    loadUsers()
-  } catch (error) {
-    ElMessage.error('操作失败')
-  } finally {
-    saving.value = false
+    ElMessage.success(`用户${action}成功`)
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('Failed to toggle user status:', error)
+      ElMessage.error(`用户${action}失败`)
+    }
   }
 }
 
-// 取消表单
-const cancelUserForm = () => {
-  showAddUser.value = false
-  editingUser.value = null
-  Object.assign(userForm, {
-    username: '',
-    fullName: '',
-    email: '',
-    password: '',
-    role: 'USER',
-    enabled: true
-  })
-  userFormRef.value?.clearValidate()
+const deleteUser = async (user: UserType) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除用户"${user.username}"吗？此操作不可恢复，将删除用户的所有聊天记录，但会保留合同审查记录。`,
+      '删除确认',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'warning',
+        distinguishCancelAndClose: true
+      }
+    )
+    
+    // 调用删除用户API
+    await deleteUserApi(user.id)
+    
+    ElMessage.success('用户删除成功')
+    
+    // 刷新用户列表
+    await fetchUserList()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      console.error('Failed to delete user:', error)
+      ElMessage.error('操作失败')
+    }
+  }
 }
 
-// 辅助函数
-const formatDateTime = (timestamp: string) => {
-  return new Date(timestamp).toLocaleString('zh-CN')
+const handleAddSubmit = async () => {
+  if (!addFormRef.value) return
+  
+  try {
+    await addFormRef.value.validate()
+    addLoading.value = true
+    
+    // 调用真实API注册新用户
+    await registerApi({
+      username: addForm.value.username,
+      email: addForm.value.email,
+      fullName: addForm.value.fullName,
+      password: addForm.value.password
+    })
+    
+    // 重置表单
+    addForm.value = {
+      username: '',
+      email: '',
+      fullName: '',
+      password: '',
+      role: 'USER',
+      enabled: true
+    }
+    
+    showAddDialog.value = false
+    ElMessage.success('用户添加成功')
+    
+    // 刷新用户列表
+    await fetchUserList()
+  } catch (error: any) {
+    console.error('Failed to add user:', error)
+    const errorMsg = error?.response?.data?.message || error?.message || '添加用户失败'
+    ElMessage.error(errorMsg)
+  } finally {
+    addLoading.value = false
+  }
 }
 
-// 组件挂载时加载数据
+const handleEditSubmit = async () => {
+  if (!editFormRef.value) return
+  
+  try {
+    await editFormRef.value.validate()
+    editLoading.value = true
+    
+    // 注意：后端的updateUser API只支持更新fullName和email
+    // role和enabled需要通过其他API更新
+    const { updateUserApi } = await import('@/api/userService')
+    await updateUserApi(editForm.value.id, {
+      fullName: editForm.value.fullName,
+      email: editForm.value.email
+    })
+    
+    showEditDialog.value = false
+    ElMessage.success('用户信息更新成功')
+    
+    // 刷新用户列表
+    await fetchUserList()
+  } catch (error: any) {
+    console.error('Failed to update user:', error)
+    const errorMsg = error?.response?.data?.message || error?.message || '更新用户信息失败'
+    ElMessage.error(errorMsg)
+  } finally {
+    editLoading.value = false
+  }
+}
+
+// 组件挂载时获取数据
 onMounted(() => {
-  loadUsers()
+  fetchUserList()
 })
 </script>
 
 <style scoped>
-.admin-users-container {
+.users-container {
   max-width: 1200px;
   margin: 0 auto;
 }
 
-.card-header {
+.page-header {
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  align-items: flex-start;
 }
 
-.card-header h3 {
-  margin: 0 0 4px 0;
-  color: var(--text-primary);
+.header-left h3 {
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #2c3e50;
 }
 
-.card-header p {
+.header-subtitle {
   margin: 0;
-  color: var(--text-secondary);
+  color: #7f8c8d;
   font-size: 14px;
 }
 
-.filter-section {
+.header-right {
+  display: flex;
+  gap: 12px;
+}
+
+.search-section {
   margin-bottom: 20px;
+  padding: 20px;
+  background-color: #f8f9fa;
+  border-radius: 6px;
+}
+
+.table-section {
+  margin-top: 20px;
 }
 
 .user-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
 }
 
-.pagination-wrapper {
+.user-details {
+  display: flex;
+  flex-direction: column;
+}
+
+.username {
+  font-weight: 500;
+  color: #2c3e50;
+}
+
+.fullname {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.pagination-section {
   margin-top: 20px;
-  text-align: center;
+  text-align: right;
 }
 
+/* 响应式设计 */
 @media (max-width: 768px) {
-  .card-header {
+  .page-header {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .header-right {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .search-section .el-row {
+    gap: 15px;
+  }
+  
+  .search-section .el-col {
+    margin-bottom: 15px;
+  }
+  
+  .pagination-section {
+    text-align: center;
+  }
+  
+  .user-info {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
+    gap: 8px;
   }
+}
 
-  .filter-section .el-form {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+@media (max-width: 480px) {
+  .search-section {
+    padding: 15px;
   }
-
-  .filter-section .el-form-item {
-    margin-bottom: 0;
+  
+  .header-right .el-button {
+    flex: 1;
+  }
+  
+  .el-table :deep(.el-table__cell) {
+    padding: 8px 4px;
   }
 }
 </style>

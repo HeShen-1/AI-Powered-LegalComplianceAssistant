@@ -1,5 +1,6 @@
 package com.river.LegalAssistant.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -21,6 +22,7 @@ public class RiskClause {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "contract_review_id", nullable = false)
+    @JsonBackReference
     private ContractReview contractReview;
 
     @Column(name = "clause_text", nullable = false, columnDefinition = "TEXT")

@@ -17,7 +17,7 @@ import java.util.List;
 @Slf4j
 public class LegalTools {
 
-    private final AiService aiService;
+    private final VectorStoreService vectorStoreService;
 
     /**
      * 在法律知识库中搜索相关文档
@@ -28,7 +28,14 @@ public class LegalTools {
      */
     @Tool("在法律知识库中搜索相关文档和案例。输入查询关键词，返回最相关的法律条文和合同条款。")
     public String searchLegalKnowledge(String query, Integer maxResults) {
-        log.info("Agent调用法律知识库搜索工具，查询: {}", query);
+        // 只输出查询摘要，避免在终端显示完整内容
+        String queryPreview = query != null && query.length() > 50 
+            ? query.substring(0, 50) + "..." 
+            : query;
+        
+        if (log.isDebugEnabled()) {
+            log.debug("Agent调用法律知识库搜索工具，查询摘要: {}", queryPreview);
+        }
         
         try {
             if (maxResults == null || maxResults <= 0) {
@@ -38,7 +45,7 @@ public class LegalTools {
             // 限制最大结果数量，避免返回过多内容
             maxResults = Math.min(maxResults, 10);
             
-            List<Document> documents = aiService.searchSimilarDocuments(query, maxResults);
+            List<Document> documents = vectorStoreService.searchSimilar(query, maxResults);
             
             if (documents.isEmpty()) {
                 return "未找到与查询相关的法律文档。建议重新组织查询词汇或咨询专业法律人士。";
@@ -62,7 +69,9 @@ public class LegalTools {
                 result.append("内容: ").append(content).append("\n\n");
             }
             
-            log.info("法律知识库搜索完成，返回 {} 个结果", documents.size());
+            if (log.isDebugEnabled()) {
+                log.debug("法律知识库搜索完成，返回 {} 个结果", documents.size());
+            }
             return result.toString();
             
         } catch (Exception e) {
@@ -81,13 +90,15 @@ public class LegalTools {
     @SuppressWarnings("unused") // 通过AI Agent的工具调用机制使用
     @Tool("搜索特定类型的法律风险信息和防范措施。输入风险类型，返回相关的法律条文和专业建议。")
     public String searchRiskInformation(String riskType) {
-        log.info("Agent调用风险信息搜索工具，风险类型: {}", riskType);
+        if (log.isDebugEnabled()) {
+            log.debug("Agent调用风险信息搜索工具，风险类型: {}", riskType);
+        }
         
         try {
             // 构建针对性的查询
             String query = riskType + " 法律风险 条文 防范措施 建议";
             
-            List<Document> documents = aiService.searchSimilarDocuments(query, 3);
+            List<Document> documents = vectorStoreService.searchSimilar(query, 3);
             
             if (documents.isEmpty()) {
                 return String.format("未找到关于'%s'的具体法律条文。建议咨询专业法律顾问获取针对性的风险防范建议。", riskType);
@@ -110,7 +121,9 @@ public class LegalTools {
             
             result.append("建议: 具体的风险防范措施应根据实际情况制定，建议结合具体合同条款咨询专业法律人士。");
             
-            log.info("风险信息搜索完成，风险类型: {}", riskType);
+            if (log.isDebugEnabled()) {
+                log.debug("风险信息搜索完成，风险类型: {}", riskType);
+            }
             return result.toString();
             
         } catch (Exception e) {
@@ -131,7 +144,9 @@ public class LegalTools {
     @SuppressWarnings("unused") // 通过AI Agent的工具调用机制使用
     @Tool("计算合同违约金和赔偿金额。输入合同价值、违约金比例和实际损失，返回计算结果和相关法律依据。")
     public String calculatePenalty(double contractValue, double penaltyRate, Double actualLoss) {
-        log.info("Agent调用违约金计算工具，合同价值: {}, 违约金比例: {}%", contractValue, penaltyRate);
+        if (log.isDebugEnabled()) {
+            log.debug("Agent调用违约金计算工具，合同价值: {}, 违约金比例: {}%", contractValue, penaltyRate);
+        }
         
         try {
             if (contractValue <= 0) {
@@ -175,7 +190,9 @@ public class LegalTools {
             result.append("约定的违约金低于造成的损失的，人民法院或者仲裁机构可以根据当事人的请求予以增加；\n");
             result.append("约定的违约金过分高于造成的损失的，人民法院或者仲裁机构可以根据当事人的请求予以适当减少。");
             
-            log.info("违约金计算完成");
+            if (log.isDebugEnabled()) {
+                log.debug("违约金计算完成");
+            }
             return result.toString();
             
         } catch (Exception e) {
@@ -195,13 +212,15 @@ public class LegalTools {
     @SuppressWarnings("unused") // 通过AI Agent的工具调用机制使用
     @Tool("查询特定法律条文的详细内容和释义。输入法律名称和条文编号，返回条文原文和专业解释。")
     public String queryLegalArticle(String lawName, String articleNumber) {
-        log.info("Agent调用法律条文查询工具，法律: {}, 条文: {}", lawName, articleNumber);
+        if (log.isDebugEnabled()) {
+            log.debug("Agent调用法律条文查询工具，法律: {}, 条文: {}", lawName, articleNumber);
+        }
         
         try {
             // 构建查询
             String query = lawName + " " + articleNumber + " 条文 内容";
             
-            List<Document> documents = aiService.searchSimilarDocuments(query, 2);
+            List<Document> documents = vectorStoreService.searchSimilar(query, 2);
             
             if (documents.isEmpty()) {
                 return String.format("未找到%s %s的相关条文。请检查法律名称和条文编号是否正确。", lawName, articleNumber);
@@ -220,7 +239,9 @@ public class LegalTools {
             
             result.append("注意: 以上内容仅供参考，具体适用请咨询专业法律人士。");
             
-            log.info("法律条文查询完成");
+            if (log.isDebugEnabled()) {
+                log.debug("法律条文查询完成");
+            }
             return result.toString();
             
         } catch (Exception e) {
@@ -238,7 +259,9 @@ public class LegalTools {
      */
     @Tool("分析特定合同条款的合法性和合理性。输入条款文本和类型，返回专业分析和改进建议。")
     public String analyzeContractClause(String clauseText, String clauseType) {
-        log.info("Agent调用合同条款分析工具，条款类型: {}", clauseType);
+        if (log.isDebugEnabled()) {
+            log.debug("Agent调用合同条款分析工具，条款类型: {}", clauseType);
+        }
         
         try {
             if (clauseText == null || clauseText.trim().length() < 10) {
@@ -247,7 +270,7 @@ public class LegalTools {
             
             // 搜索相关法律依据
             String query = clauseType + " 合同条款 法律规定 标准条款";
-            List<Document> documents = aiService.searchSimilarDocuments(query, 3);
+            List<Document> documents = vectorStoreService.searchSimilar(query, 3);
             
             StringBuilder result = new StringBuilder();
             result.append(String.format("'%s'条款分析：\n\n", clauseType));
@@ -287,7 +310,9 @@ public class LegalTools {
             
             result.append("\n重要提醒: 以上分析仅供参考，具体的合同条款设计建议咨询专业律师。");
             
-            log.info("合同条款分析完成，条款类型: {}", clauseType);
+            if (log.isDebugEnabled()) {
+                log.debug("合同条款分析完成，条款类型: {}", clauseType);
+            }
             return result.toString();
             
         } catch (Exception e) {
