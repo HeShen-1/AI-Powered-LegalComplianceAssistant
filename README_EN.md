@@ -26,37 +26,37 @@ This project is an AI-powered legal service platform that integrates automated r
 
 ## Core Features
 
-### 1. Intelligent Contract Review
+### 1. Unified Chat Service
+- **Unified API Endpoint**: Provides `/chat` and `/chat/stream` as unified endpoints that intelligently route requests to the most suitable backend AI service.
+- **Multiple Chat Modes**:
+    - **Basic Mode**: Local Ollama model + RAG for general legal Q&A.
+    - **Advanced Mode**: DeepSeek Agent model with tool-calling and complex reasoning capabilities for in-depth legal analysis.
+    - **Advanced RAG Mode**: LangChain4j advanced RAG framework, offering query transformation, multi-source retrieval, and re-ranking.
+    - **Unified Smart Mode**: Automatically selects between `Advanced Mode` and `Advanced RAG Mode` based on question complexity.
+- **Chat History Management**: Automatically saves the complete conversation history between the user and the AI, supporting session-based review and management.
+
+### 2. Intelligent Contract Review
 - **Multi-Format Support**: Supports uploading contract files in `.docx`, `.pdf`, and `.txt` formats.
 - **Asynchronous Processing**: Uses SSE (Server-Sent Events) to push review progress in real-time, optimizing the user experience.
 - **Risk Identification & Highlighting**: The AI automatically identifies potential risk clauses in contracts and categorizes them into high, medium, and low-risk levels.
 - **Modification Suggestions**: Provides professional suggestions and legal justifications for risky clauses.
 - **Review History**: Users can access their historical review records and detailed results.
 
-### 2. RAG-based Legal Q&A
-- **Knowledge-Driven**: Based on RAG (Retrieval-Augmented Generation) technology, it provides precise answers to legal questions by leveraging a built-in legal knowledge base.
-- **Contextual Understanding**: Supports multi-turn conversations and understands context to provide a more natural interactive experience.
-- **Legal Citation**: Accurately cites relevant laws and regulations in its answers, enhancing the authority of the information.
-
-### 3. AI Legal Agent
-- **Tool Calling**: Implemented with a ReAct Agent, it can call external tools (like online search, database queries) to solve complex legal problems.
-- **In-depth Analysis**: Capable of conducting deep analysis of complex scenarios presented by users, offering comprehensive legal advice.
-- **Dynamic Interaction**: The agent can dynamically plan execution steps based on the query, providing more intelligent consultation.
-
-### 4. Professional Compliance Report Generation
+### 3. Professional Compliance Report Generation
 - **One-Click Generation**: Generates professional PDF review reports for completed contract reviews with a single click.
 - **Comprehensive Content**: Reports include risk statistics charts, detailed risk clauses, modification suggestions, and an overall compliance score.
 - **Standardized Format**: Uses a standardized report format for easy archiving and sharing.
 
-### 5. Knowledge Base Management (Admin Function)
-- **Document Management**: Administrators can upload, delete, and manage legal documents used for RAG.
+### 4. Knowledge Base Management (Admin Function)
+- **Document Management**: Administrators can upload, delete, and manage legal documents used for RAG, with support for batch operations.
 - **Automated Processing**: Uploaded documents are automatically parsed, chunked, vectorized, and stored in the vector database.
+- **Index Maintenance**: Provides vector database rebuilding, cleaning, and statistics functions to ensure efficient knowledge base operation.
 - **Statistics & Maintenance**: Provides knowledge base statistics and index rebuilding functionalities.
 
-### 6. Security & User Management
-- **Authentication**: Implements user registration and login authentication based on Spring Security.
+### 5. Security & User Management
+- **Authentication**: Implements user registration and login authentication based on Spring Security and JWT.
 - **Authorization**: Supports `USER` and `ADMIN` roles to ensure operational security.
-- **User Management**: Admins can manage and maintain user information.
+- **User Management**: Admins can perform comprehensive CRUD operations and manage the status of user information.
 
 ## Quick Start
 
@@ -91,6 +91,7 @@ This project is an AI-powered legal service platform that integrates automated r
    ollama pull qwen2:7b
    ollama pull nomic-embed-text
    ```
+   **Note**: The advanced legal consultation feature relies on the [DeepSeek](https://platform.deepseek.com/) API. Please configure your `DEEPSEEK_API_KEY` in `application.yml`.
 
 4. **Configure database connection**
    
@@ -138,13 +139,16 @@ src/
 
 The system provides the following core API endpoints:
 
-- `POST /api/contracts/upload`: Upload a contract file and create a review task.
-- `POST /api/contracts/{reviewId}/analyze-async`: Asynchronously perform contract review and get progress via SSE.
-- `GET /api/contracts/{reviewId}`: Get detailed results for a specific review task.
-- `GET /api/contracts/{reviewId}/report`: Generate and download the PDF review report.
-- `POST /api/ai/chat/rag`: Perform legal Q&A based on the RAG knowledge base.
-- `POST /api/ai/agent/consult`: Consult with the AI legal agent.
-- `POST /api/knowledge-base/documents`: (Admin) Upload a document to the knowledge base.
+- `POST /chat`: Unified chat endpoint supporting multiple modes.
+- `POST /chat/stream`: Unified streaming chat endpoint.
+- `GET /chat/sessions`: Get the current user's chat session list.
+- `GET /chat/sessions/{sessionId}`: Get detailed messages for a specific session.
+- `DELETE /chat/sessions/{sessionId}`: Delete a specific chat session.
+- `POST /contracts/upload`: Upload a contract file and create a review task.
+- `GET /contracts/{reviewId}/analyze-async`: Asynchronously perform contract review and get progress via SSE.
+- `GET /contracts/{reviewId}/report`: Generate and download the PDF review report.
+- `POST /knowledge-base/documents/upload-single`: (Admin) Upload a single document to the knowledge base.
+- `POST /admin/vector-db/rebuild-sync`: (Admin) Synchronously rebuild the vector database.
 
 For a complete list of APIs and their usage, please refer to the API documentation.
 
@@ -223,6 +227,14 @@ This project is licensed under the Apache License. See the [LICENSE](LICENSE) fi
 - Email: river-911@qq.com
 
 ## Changelog
+
+### v1.2.0 (This Update)
+- ✅ **Unified Chat Service**: Added unified `/chat` and `/chat/stream` API endpoints with intelligent routing and multi-model support.
+- ✅ **Chat History Management**: Implemented full chat history functionality, supporting session-based message management.
+- ✅ **Advanced RAG Integration**: Integrated the LangChain4j Advanced RAG framework to improve Q&A quality.
+- ✅ **DeepSeek Agent**: Integrated the DeepSeek model and ReAct Agent to enhance complex problem-solving capabilities.
+- ✅ **Vector Database Management**: Added advanced maintenance features for the vector database, including rebuilding, cleaning, and statistics.
+- ✅ **Code Structure Optimization**: Refactored and separated controllers for AI, user authentication, and knowledge base modules to improve maintainability.
 
 ### v1.1.0
 - ✅ **Intelligent Contract Review**: Implemented multi-format file upload, asynchronous analysis with progress push, and risk clause identification/classification.
