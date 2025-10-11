@@ -30,25 +30,29 @@ import java.util.stream.Collectors;
 public class RAGService {
 
     private final ChatClient chatClient;
-    private final VectorStoreService vectorStoreService;
+    private final VectorStoreService vectorStoreService;  // 保留用于向后兼容
+    private final HybridSearchService hybridSearchService;  // ✅ 新增：混合检索服务
     private final TextProcessingService textProcessingService;
     
     @Value("${app.ai.prompts.legal-qa}")
     private Resource legalQaPromptResource;
 
     /**
-     * 执行标准RAG流程: 检索 -> 增强 -> 生成
+     * 执行智能RAG流程: 检索 -> 增强 -> 生成
+     * ✅ 优化：使用混合检索策略，提升精确条款检索准确率
      * 
      * @param question 用户问题
      * @param maxResults 最大检索结果数
      * @return RAG结果
      */
     public RagResult performRAG(String question, int maxResults) {
-        log.info("执行RAG流程,问题: {}, 最大结果数: {}", question, maxResults);
+        log.info("执行智能RAG流程,问题: {}, 最大结果数: {}", question, maxResults);
         
         try {
-            // 1. 向量检索相关文档
-            List<Document> similarDocs = vectorStoreService.searchSimilar(question, maxResults);
+            // 1. ✅ 核心改进：使用混合检索替代纯向量检索
+            //    - 精确条款查询：使用元数据精确匹配
+            //    - 语义查询：使用向量相似度检索
+            List<Document> similarDocs = hybridSearchService.search(question, maxResults);
             
             // 2. 检查是否找到相关文档
             if (similarDocs.isEmpty()) {
@@ -76,26 +80,27 @@ public class RAGService {
                     .call()
                     .content();
             
-            log.info("RAG流程完成,使用了 {} 个文档片段", filteredDocs.size());
+            log.info("智能RAG流程完成,使用了 {} 个文档片段", filteredDocs.size());
             
             return new RagResult(response, true, filteredDocs.size(), filteredDocs);
             
         } catch (Exception e) {
-            log.error("RAG流程执行失败", e);
+            log.error("智能RAG流程执行失败", e);
             throw new RuntimeException("RAG服务暂时不可用", e);
         }
     }
 
     /**
-     * 使用指定的ChatClient执行RAG流程
+     * 使用指定的ChatClient执行智能RAG流程
+     * ✅ 优化：使用混合检索策略
      * 用于支持不同模型或带记忆的场景
      */
     public RagResult performRAGWithClient(String question, int maxResults, ChatClient customChatClient) {
-        log.info("使用自定义ChatClient执行RAG流程");
+        log.info("使用自定义ChatClient执行智能RAG流程");
         
         try {
-            // 向量检索
-            List<Document> similarDocs = vectorStoreService.searchSimilar(question, maxResults);
+            // ✅ 使用混合检索
+            List<Document> similarDocs = hybridSearchService.search(question, maxResults);
             
             if (similarDocs.isEmpty()) {
                 return new RagResult(
@@ -117,12 +122,12 @@ public class RAGService {
                     .call()
                     .content();
             
-            log.info("RAG流程完成(自定义Client),使用了 {} 个文档片段", filteredDocs.size());
+            log.info("智能RAG流程完成(自定义Client),使用了 {} 个文档片段", filteredDocs.size());
             
             return new RagResult(response, true, filteredDocs.size(), filteredDocs);
             
         } catch (Exception e) {
-            log.error("RAG流程执行失败(自定义Client)", e);
+            log.error("智能RAG流程执行失败(自定义Client)", e);
             throw new RuntimeException("RAG服务暂时不可用", e);
         }
     }

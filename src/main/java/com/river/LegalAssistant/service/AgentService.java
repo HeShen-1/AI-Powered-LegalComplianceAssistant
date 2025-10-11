@@ -413,18 +413,22 @@ public class AgentService {
             try {
                 if (advancedChatModel != null) {
                     // 使用DeepSeek高级服务进行法律咨询
+                    log.info("✅ 使用 DeepSeek 高级模型处理请求（详细版），会话: {}", sessionId);
                     response = advancedChatModel.chat("作为专业法律助手，请提供准确、详细的法律建议：" + question);
                     serviceInfo = "DeepSeek AI Agent";
                     modelInfo = "deepseek-chat";
                     isDeepSeek = true;
+                    log.info("✅ DeepSeek响应成功，响应长度: {}", response != null ? response.length() : 0);
                 } else if (basicChatModel != null) {
                     // 降级到OLLAMA基础服务
-                    log.warn("DeepSeek高级服务不可用，降级使用OLLAMA基础服务");
+                    log.warn("⚠️ DeepSeek高级服务不可用，降级使用OLLAMA基础服务，会话: {}", sessionId);
                     response = basicChatModel.chat("作为法律助手，请回答以下问题：" + question);
                     serviceInfo = "OLLAMA基础服务 (降级)";
                     modelInfo = "qwen2:1.5b";
                     isDeepSeek = false;
+                    log.info("✅ Ollama降级响应成功，响应长度: {}", response != null ? response.length() : 0);
                 } else {
+                    log.error("❌ 所有AI服务均不可用，会话: {}", sessionId);
                     return new ConsultationResult(
                         "AI法律顾问服务暂时不可用，请稍后重试。建议咨询专业律师获得法律建议。",
                         "服务不可用",
@@ -434,12 +438,12 @@ public class AgentService {
                 }
                 
                 // 统一记录日志
-                log.info("使用{}处理法律咨询，会话: {}", serviceInfo, sessionId);
+                log.info("📊 最终使用模型: {} ({}), 会话: {}", serviceInfo, modelInfo, sessionId);
                 
                 return new ConsultationResult(response, serviceInfo, modelInfo, isDeepSeek);
                 
             } catch (Exception chatError) {
-                log.error("聊天调用失败：{}", chatError.getMessage());
+                log.error("❌ 聊天调用失败，会话: {}, 错误: {}", sessionId, chatError.getMessage());
                 return new ConsultationResult(
                     "处理您的法律咨询时出现问题，请稍后重试。错误信息: " + chatError.getMessage(),
                     "错误处理",
@@ -485,21 +489,25 @@ public class AgentService {
             try {
                 if (advancedChatModel != null) {
                     // 使用DeepSeek高级服务进行法律咨询
+                    log.info("✅ 使用 DeepSeek 高级模型处理请求，会话: {}", sessionId);
                     response = advancedChatModel.chat("作为专业法律助手，请提供准确、详细的法律建议：" + question);
                     serviceInfo = "DEEPSEEK高级服务 (deepseek-chat)";
+                    log.info("✅ DeepSeek响应成功，响应长度: {}", response != null ? response.length() : 0);
                 } else if (basicChatModel != null) {
                     // 降级到OLLAMA基础服务
-                    log.warn("DeepSeek高级服务不可用，降级使用OLLAMA基础服务");
+                    log.warn("⚠️ DeepSeek高级服务不可用，降级使用OLLAMA基础服务，会话: {}", sessionId);
                     response = basicChatModel.chat("作为法律助手，请回答以下问题：" + question);
                     serviceInfo = "OLLAMA基础服务 (qwen2:1.5b) [降级]";
+                    log.info("✅ Ollama降级响应成功，响应长度: {}", response != null ? response.length() : 0);
                 } else {
+                    log.error("❌ 所有AI服务均不可用，会话: {}", sessionId);
                     return "AI法律顾问服务暂时不可用，请稍后重试。建议咨询专业律师获得法律建议。";
                 }
                 
-                // 统一记录日志，避免重复
-                log.info("使用{}处理法律咨询，会话: {}", serviceInfo, sessionId);
+                // 统一记录日志
+                log.info("📊 最终使用模型: {}, 会话: {}", serviceInfo, sessionId);
             } catch (Exception chatError) {
-                log.error("直接聊天调用失败：{}", chatError.getMessage());
+                log.error("❌ 聊天调用失败，会话: {}, 错误: {}", sessionId, chatError.getMessage());
                 return "处理您的法律咨询时出现问题，请稍后重试。错误信息: " + chatError.getMessage();
             }
             

@@ -565,6 +565,18 @@ const handleNewChat = () => {
  */
 const handleSelectSession = async (selectedSessionId: string) => {
   try {
+    // ✅ 修复：检查是否有正在进行的流式传输
+    if (isLoading.value) {
+      const hasStreamingMessage = messages.value.some(msg => msg.isStreaming)
+      if (hasStreamingMessage) {
+        ElMessage.warning({
+          message: 'AI正在回答中，请等待完成后再切换会话',
+          duration: 2000
+        })
+        return
+      }
+    }
+    
     // 重置滚动状态
     showScrollToBottom.value = false
     isUserScrolling.value = false
@@ -585,7 +597,11 @@ const handleSelectSession = async (selectedSessionId: string) => {
     isNewSession.value = false
     
     scrollToBottom()
-    ElMessage.success('已加载历史会话')
+    // ✅ 优化：缩短提示显示时间到1秒
+    ElMessage.success({
+      message: '已加载历史会话',
+      duration: 800
+    })
   } catch (error) {
     console.error('加载会话失败:', error)
     ElMessage.error('加载会话失败')

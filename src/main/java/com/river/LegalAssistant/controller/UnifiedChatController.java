@@ -123,13 +123,18 @@ public class UnifiedChatController {
                 try {
                     Map<String, Object> metadata = new HashMap<>();
                     metadata.put("modelType", request.getModelType().toString());
-                    metadata.put("modelName", request.getModelName());
+                    
+                    // ✅ 优化：记录实际使用的模型，而不是请求参数中的模型
+                    String actualModel = extractActualModelFromResponse(response);
+                    metadata.put("modelName", actualModel);
+                    metadata.put("requestedModel", request.getModelName()); // 保留原始请求信息
+                    
                     if (response.getMetadata() != null) {
                         metadata.putAll(response.getMetadata());
                     }
                     
                     chatHistoryService.saveAssistantMessage(sessionId, response.getAnswer(), metadata);
-                    log.debug("已保存助手回复到会话: {}", sessionId);
+                    log.debug("已保存助手回复到会话: {}, 使用模型: {}", sessionId, actualModel);
                 } catch (Exception e) {
                     log.warn("保存助手回复失败", e);
                 }
@@ -246,12 +251,16 @@ public class UnifiedChatController {
                 try {
                     Map<String, Object> metadata = new HashMap<>();
                     metadata.put("modelType", request.getModelType().toString());
-                    metadata.put("modelName", request.getModelName());
+                    
+                    // ✅ 优化：推断实际使用的模型，而不是使用请求参数
+                    String actualModel = inferActualModelFromStreamRequest(request);
+                    metadata.put("modelName", actualModel);
+                    metadata.put("requestedModel", request.getModelName()); // 保留原始请求信息
                     metadata.put("streaming", true);
                     
                     chatHistoryService.saveAssistantMessage(
                         finalSessionId[0], fullResponseBuilder.toString(), metadata);
-                    log.debug("已保存流式助手回复到会话: {}", finalSessionId[0]);
+                    log.debug("已保存流式助手回复到会话: {}, 使用模型: {}", finalSessionId[0], actualModel);
                 } catch (Exception e) {
                     log.warn("保存流式助手回复失败", e);
                 }
@@ -717,57 +726,203 @@ public class UnifiedChatController {
     
     /**
      * 判断是否是复杂的法律分析问题
-     * 这类问题适合使用Agent进行多步推理
+     * ✅ 优化版：降低阈值，扩展关键词覆盖
      */
     private boolean isComplexLegalAnalysis(String questionLower) {
-        // 案例分析特征
+        // ✅ 扩展案例分析特征
         boolean isCaseAnalysis = questionLower.contains("案例") || 
                                  questionLower.contains("案情") || 
                                  questionLower.contains("核心法律问题") ||
                                  questionLower.contains("如何认定") ||
-                                 questionLower.contains("是否构成");
+                                 questionLower.contains("是否构成") ||
+                                 questionLower.contains("案件") ||
+                                 questionLower.contains("纠纷");
         
-        // 多步推理特征
+        // ✅ 扩展多步推理特征
         boolean needsReasoning = questionLower.contains("分析") || 
                                  questionLower.contains("判断") || 
                                  questionLower.contains("评估") ||
                                  questionLower.contains("应当如何") ||
-                                 questionLower.contains("如何处理");
+                                 questionLower.contains("如何处理") ||
+                                 questionLower.contains("怎么办") ||
+                                 questionLower.contains("怎样处理") ||
+                                 questionLower.contains("建议") ||
+                                 questionLower.contains("对策");
         
-        // 文档生成特征
+        // ✅ 扩展文档生成特征
         boolean needsGeneration = questionLower.contains("起草") || 
                                   questionLower.contains("撰写") || 
                                   questionLower.contains("生成") ||
-                                  questionLower.contains("制作");
+                                  questionLower.contains("制作") ||
+                                  questionLower.contains("拟定");
         
-        // 审查分析特征
+        // ✅ 扩展审查分析特征
         boolean needsReview = questionLower.contains("审查") || 
                              questionLower.contains("审核") || 
-                             questionLower.contains("检查");
+                             questionLower.contains("检查") ||
+                             questionLower.contains("风险") ||
+                             questionLower.contains("隐患") ||
+                             questionLower.contains("问题");
         
-        // 问题长度（复杂问题通常较长）
-        boolean isLongQuestion = questionLower.length() > 100;
+        // ✅ 新增：责任认定和法律后果
+        boolean needsLiability = questionLower.contains("责任") ||
+                                questionLower.contains("赔偿") ||
+                                questionLower.contains("承担") ||
+                                questionLower.contains("后果") ||
+                                questionLower.contains("处罚");
         
-        return isCaseAnalysis || needsReasoning || needsGeneration || needsReview || isLongQuestion;
+        // ✅ 降低长问题阈值到70字符
+        boolean isLongQuestion = questionLower.length() > 70;
+        
+        // ✅ 新增：包含多个关键法律概念（表明问题复杂）
+        int conceptCount = 0;
+        String[] legalConcepts = {"合同", "违约", "侵权", "赔偿", "诉讼", "仲裁", "协议"};
+        for (String concept : legalConcepts) {
+            if (questionLower.contains(concept)) {
+                conceptCount++;
+            }
+        }
+        boolean hasMultipleConcepts = conceptCount >= 2;
+        
+        return isCaseAnalysis || needsReasoning || needsGeneration || 
+               needsReview || needsLiability || isLongQuestion || hasMultipleConcepts;
+    }
+    
+    /**
+     * ✅ 新增：从响应中提取实际使用的模型
+     * 分析响应的metadata，确定实际使用了哪个AI模型
+     */
+    private String extractActualModelFromResponse(UnifiedChatResponse response) {
+        if (response == null) {
+            return "unknown";
+        }
+        
+        // 1. 优先从响应的modelName字段获取
+        if (response.getModelName() != null && !response.getModelName().isEmpty()) {
+            return response.getModelName();
+        }
+        
+        // 2. 从metadata中提取服务信息
+        if (response.getMetadata() != null) {
+            // 检查是否有service字段
+            Object service = response.getMetadata().get("service");
+            if (service != null) {
+                String serviceStr = service.toString().toLowerCase();
+                if (serviceStr.contains("deepseek")) {
+                    return "deepseek-chat";
+                }
+            }
+            
+            // 检查是否有modelUsed字段
+            Object modelUsed = response.getMetadata().get("modelUsed");
+            if (modelUsed != null) {
+                return modelUsed.toString();
+            }
+            
+            // 检查是否有isDeepSeekUsed标记
+            Object isDeepSeek = response.getMetadata().get("isDeepSeek");
+            if (isDeepSeek instanceof Boolean && (Boolean) isDeepSeek) {
+                return "deepseek-chat";
+            }
+        }
+        
+        // 3. 根据responseType推断
+        String responseType = response.getResponseType();
+        if (responseType != null) {
+            if (responseType.contains("agent") || responseType.contains("advanced_agent")) {
+                // Agent通常使用Deepseek，除非降级
+                return "deepseek-chat (inferred)";
+            } else if (responseType.contains("rag") || responseType.contains("advanced_rag")) {
+                // RAG使用Ollama
+                return "qwen2:1.5b (ollama)";
+            }
+        }
+        
+        // 4. 默认返回未知
+        return "unknown";
+    }
+    
+    /**
+     * ✅ 新增：推断流式请求实际使用的模型
+     * 根据请求的modelType和消息内容推断实际使用的模型
+     * 
+     * @param request 统一聊天请求
+     * @return 实际使用的模型标识
+     */
+    private String inferActualModelFromStreamRequest(UnifiedChatRequest request) {
+        String questionLower = request.getMessage().toLowerCase();
+        
+        switch (request.getModelType()) {
+            case BASIC:
+                // 基础模式使用Ollama
+                return "qwen2:1.5b (ollama)";
+                
+            case ADVANCED:
+                // 高级模式使用DeepSeek Agent
+                return "deepseek-chat";
+                
+            case ADVANCED_RAG:
+                // Advanced RAG使用LangChain4j配置的模型（通常是Ollama）
+                return "qwen2:1.5b (langchain4j)";
+                
+            case UNIFIED:
+                // 统一模式需要根据路由逻辑推断
+                boolean isComplexAnalysis = isComplexLegalAnalysis(questionLower);
+                boolean isSimpleQuery = isSimpleLegalQuery(questionLower);
+                
+                if (isSimpleQuery) {
+                    // 简单查询路由到Advanced RAG
+                    log.debug("流式模型推断: 简单查询 -> Advanced RAG");
+                    return "qwen2:1.5b (langchain4j)";
+                } else if (isComplexAnalysis) {
+                    // 复杂分析路由到Agent (DeepSeek)
+                    log.debug("流式模型推断: 复杂分析 -> DeepSeek Agent");
+                    return "deepseek-chat";
+                } else {
+                    // 默认路由到Agent (DeepSeek)
+                    log.debug("流式模型推断: 默认 -> DeepSeek Agent");
+                    return "deepseek-chat";
+                }
+                
+            default:
+                log.warn("未知的模型类型: {}, 使用请求参数中的模型名称", request.getModelType());
+                return request.getModelName();
+        }
     }
     
     /**
      * 判断是否是简单的法律查询
-     * 这类问题适合使用RAG快速检索
+     * ✅ 优化版：放宽识别标准，增加关键词覆盖
      */
     private boolean isSimpleLegalQuery(String questionLower) {
-        // 定义查询特征
+        // ✅ 扩展简单查询关键词
         String[] queryPatterns = {
-            "什么是", "如何定义", "解释一下", "含义",
-            "包括哪些", "有哪些", "都有什么",
-            "查询", "查找", "搜索", "找一下"
+            // 定义类查询
+            "什么是", "如何定义", "解释一下", "含义", "是什么意思",
+            "什么意思", "怎么理解", "具体是指",
+            // 列举类查询
+            "包括哪些", "有哪些", "都有什么", "包含什么",
+            // 查询类操作
+            "查询", "查找", "搜索", "找一下", "帮我查",
+            // 简单法条查询
+            "第几条", "哪一条", "相关规定"
         };
         
-        // 检查是否包含查询特征
+        // 检查是否包含简单查询关键词
         for (String pattern : queryPatterns) {
             if (questionLower.contains(pattern)) {
-                // 如果问题很短且包含查询特征，认为是简单查询
-                if (questionLower.length() < 50) {
+                // ✅ 放宽长度限制到80字符
+                if (questionLower.length() < 80) {
+                    return true;
+                }
+            }
+        }
+        
+        // ✅ 新增：如果问题非常短（<20字）且包含疑问词，可能是简单查询
+        if (questionLower.length() < 20) {
+            String[] questionWords = {"吗", "呢", "么", "？", "?"};
+            for (String word : questionWords) {
+                if (questionLower.contains(word)) {
                     return true;
                 }
             }
