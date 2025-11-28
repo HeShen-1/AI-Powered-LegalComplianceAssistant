@@ -2,6 +2,7 @@ HELP.md
 target/
 uploads/
 documents/
+src/main/resources/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

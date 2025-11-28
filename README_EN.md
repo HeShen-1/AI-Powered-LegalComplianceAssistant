@@ -3,6 +3,7 @@
 # AI-Powered Legal Compliance Assistant
 
 A legal compliance intelligent review system based on Spring AI + RAG + Agent.
+> This project will no longer be maintained.
 
 ## Project Overview
 
