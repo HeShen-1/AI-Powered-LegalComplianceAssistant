@@ -91,7 +91,7 @@
    ollama pull qwen2:7b
    ollama pull nomic-embed-text
    ```
-   **注意**: 高级法律顾问功能依赖 [DeepSeek](https://platform.deepseek.com/) API，请在 `application.yml` 中配置您的 `DEEPSEEK_API_KEY`。
+   **注意**: 高级法律顾问功能依赖 [DeepSeek](https://platform.deepseek.com/) API，请通过环境变量 `DEEPSEEK_API_KEY` 配置密钥（不要直接写入 `application.yml`）。
 
 4. **配置数据库连接**
    

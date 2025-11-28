@@ -91,7 +91,7 @@ This project is an AI-powered legal service platform that integrates automated r
    ollama pull qwen2:7b
    ollama pull nomic-embed-text
    ```
-   **Note**: The advanced legal consultation feature relies on the [DeepSeek](https://platform.deepseek.com/) API. Please configure your `DEEPSEEK_API_KEY` in `application.yml`.
+   **Note**: The advanced legal consultation feature relies on the [DeepSeek](https://platform.deepseek.com/) API. Set the `DEEPSEEK_API_KEY` via environment variables instead of hardcoding it in `application.yml`.
 
 4. **Configure database connection**
    
