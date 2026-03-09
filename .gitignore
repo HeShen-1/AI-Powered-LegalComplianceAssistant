@@ -1,51 +1,62 @@
-﻿# ==================== 敏感文件 ====================
-# 环境变量文件（包含API密钥等敏感信息）
+# ==================== 敏感文件 ====================
 .env
 .env.local
 .env.*.local
 *.env
-
-# 不忽略示例文件
 !.env.example
 
-# ==================== 项目文件 ====================
-HELP.md
-target/
+# ==================== 运行期数据 ====================
+logs/
+*.log
+*.pid
+hs_err_pid*
+replay_pid*
 uploads/
 documents/
-src/main/resources/
-!src/main/resources/
-!src/main/resources/application-demo.yml
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
 
-### STS ###
+# ==================== 构建产物 ====================
+target/
+out/
+build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# ==================== 前端产物 ====================
+legal-assistant-frontend/node_modules/
+legal-assistant-frontend/dist/
+legal-assistant-frontend/dist-ssr/
+legal-assistant-frontend/.vite/
+legal-assistant-frontend/*.local
+legal-assistant-frontend/.env.local
+legal-assistant-frontend/.env.*.local
+legal-assistant-frontend/auto-imports.d.ts
+legal-assistant-frontend/components.d.ts
+legal-assistant-frontend/frontend-build.log
+*.tsbuildinfo
+
+# ==================== 本地工具与工作目录 ====================
+opentelemetry-javaagent.jar
+.worktrees/
+.superdesign/
+HELP.md
+
+# ==================== IDE / 编辑器 ====================
+.vscode/
+.idea/
+*.iws
+*.iml
+*.ipr
 .apt_generated
 .classpath
 .factorypath
 .project
-.settings
+.settings/
 .springBeans
 .sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
-.vscode/
-
-
+.DS_Store
+Thumbs.db
