@@ -113,6 +113,17 @@ public class DeepSeekService {
     /**
      * 检查DeepSeek服务是否可用
      */
+    public String chat(String prompt) {
+        ensureDeepSeekEnabled();
+
+        try {
+            return Objects.requireNonNull(deepSeekChatClient.prompt(prompt).call().content());
+        } catch (Exception e) {
+            log.error("DeepSeek文本生成失败", e);
+            throw new RuntimeException("DeepSeek文本生成暂时不可用: " + e.getMessage(), e);
+        }
+    }
+
     public boolean isAvailable() {
         if (!deepSeekEnabled) {
             return false;

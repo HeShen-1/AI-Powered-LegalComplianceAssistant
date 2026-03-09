@@ -615,7 +615,7 @@ public class UnifiedChatController {
         
         // 转换SourceDetail列表为字符串列表
         List<String> sourceNames = result.sources().stream()
-                .map(sourceDetail -> sourceDetail.source() + " (相关度: " + 
+                .map(sourceDetail -> sourceDetail.source() + " (score: " + 
                      String.format("%.2f", sourceDetail.relevanceScore()) + ")")
                 .collect(java.util.stream.Collectors.toList());
         
@@ -624,10 +624,10 @@ public class UnifiedChatController {
                 .answer(result.answer())
                 .conversationId(sessionId)
                 .modelType("ADVANCED_RAG")
-                .modelName("LangChain4j")
+                .modelName(result.generationModel())
                 .usedKnowledgeBase(true)
                 .hasKnowledgeMatch(result.hasKnowledgeMatch())
-                .sourceCount(result.sourceCount())
+                .sourceCount(sourceNames.size())
                 .sources(sourceNames)
                 .memoryEnabled(true) // Advanced RAG内置记忆功能
                 .responseType("advanced_rag_chat")
@@ -644,8 +644,8 @@ public class UnifiedChatController {
         String question = request.getMessage().toLowerCase();
         UnifiedChatResponse response;
 
-        boolean isComplexAnalysis = isComplexLegalAnalysis(question);
-        boolean isSimpleQuery = isSimpleLegalQuery(question);
+        boolean isComplexAnalysis = isComplexLegalAnalysisV2(question);
+        boolean isSimpleQuery = isSimpleLegalQueryV2(question);
 
         if (isSimpleQuery) {
             log.info("Unified mode routed to Advanced RAG for simple query");
@@ -673,8 +673,8 @@ private void handleUnifiedStreamChat(UnifiedChatRequest request, SseEmitter emit
         String question = request.getMessage().toLowerCase();
         
         // 判断问题复杂度和类型
-        boolean isComplexAnalysis = isComplexLegalAnalysis(question);
-        boolean isSimpleQuery = isSimpleLegalQuery(question);
+        boolean isComplexAnalysis = isComplexLegalAnalysisV2(question);
+        boolean isSimpleQuery = isSimpleLegalQueryV2(question);
         
         if (isSimpleQuery) {
             // 简单查询：使用RAG快速响应
@@ -768,6 +768,11 @@ private void handleUnifiedStreamChat(UnifiedChatRequest request, SseEmitter emit
         if (result.sessionId() != null) {
             metadata.put("sessionId", result.sessionId());
         }
+        if (result.generationModel() != null) {
+            metadata.put("modelUsed", result.generationModel());
+            metadata.put("fallbackUsed", !result.generationModel().toLowerCase().contains("deepseek"));
+        }
+        metadata.put("sourceCount", result.sourceCount());
         return metadata;
     }
 
@@ -898,8 +903,8 @@ private void handleUnifiedStreamChat(UnifiedChatRequest request, SseEmitter emit
                 
             case UNIFIED:
                 // 统一模式需要根据路由逻辑推断
-                boolean isComplexAnalysis = isComplexLegalAnalysis(questionLower);
-                boolean isSimpleQuery = isSimpleLegalQuery(questionLower);
+                boolean isComplexAnalysis = isComplexLegalAnalysisV2(questionLower);
+                boolean isSimpleQuery = isSimpleLegalQueryV2(questionLower);
                 
                 if (isSimpleQuery) {
                     // 简单查询路由到Advanced RAG
@@ -959,6 +964,99 @@ private void handleUnifiedStreamChat(UnifiedChatRequest request, SseEmitter emit
             }
         }
         
+        return false;
+    }
+
+    private boolean isComplexLegalAnalysisV2(String questionLower) {
+        boolean isCaseAnalysis = questionLower.contains("案例")
+                || questionLower.contains("案情")
+                || questionLower.contains("案件")
+                || questionLower.contains("纠纷")
+                || questionLower.contains("场景");
+
+        boolean needsReasoning = questionLower.contains("请分析")
+                || questionLower.contains("分析")
+                || questionLower.contains("评估")
+                || questionLower.contains("判断")
+                || questionLower.contains("控制点")
+                || questionLower.contains("整改建议")
+                || questionLower.contains("组合主张")
+                || questionLower.contains("分别")
+                || (questionLower.contains("从") && questionLower.contains("方面"));
+
+        boolean needsGeneration = questionLower.contains("起草")
+                || questionLower.contains("撰写")
+                || questionLower.contains("生成")
+                || questionLower.contains("制作")
+                || questionLower.contains("拟定");
+
+        boolean needsReview = questionLower.contains("审查")
+                || questionLower.contains("审核")
+                || questionLower.contains("检查")
+                || questionLower.contains("修订");
+
+        boolean hasScenarioMarkers = questionLower.contains("如果")
+                || questionLower.contains("同时")
+                || questionLower.contains("一家")
+                || questionLower.contains("页面")
+                || questionLower.contains("企业")
+                || questionLower.contains("公司")
+                || questionLower.contains("app")
+                || questionLower.contains("平台");
+
+        int connectorCount = 0;
+        for (String connector : new String[]{"同时", "并", "以及", "分别", "三方面", "多方面"}) {
+            if (questionLower.contains(connector)) {
+                connectorCount++;
+            }
+        }
+
+        boolean isLongQuestion = questionLower.length() > 55;
+        boolean asksForMultiStepReasoning = needsReasoning
+                && (hasScenarioMarkers || isCaseAnalysis || isLongQuestion || connectorCount >= 2);
+
+        return needsGeneration || needsReview || asksForMultiStepReasoning;
+    }
+
+    private boolean isSimpleLegalQueryV2(String questionLower) {
+        boolean asksDirectQuestion = containsAnyV2(questionLower,
+                "什么是", "如何定义", "解释一下", "含义", "是什么意思", "什么意思", "怎么理解",
+                "包括哪些", "有哪些", "哪些", "哪类", "哪种", "什么情形", "什么条件", "什么后果",
+                "什么准备", "什么义务", "注意什么", "要点", "关键", "是否可以", "是否需要",
+                "做到什么程度", "如何设置", "如何理解", "通常要做什么", "通常有哪些");
+
+        boolean isKnowledgeBaseTopic = containsAnyV2(questionLower,
+                "违约", "违约金", "迟延履行", "补救措施", "损害赔偿",
+                "电商", "退货", "促销", "商品质量", "先行赔付", "消费者",
+                "劳动合同", "解除", "试用期", "裁员", "经济补偿", "代通知金",
+                "跨境", "出境", "境外", "接收方", "个人信息", "隐私政策",
+                "广告", "绝对化", "广告标识", "价格促销", "访问", "删除");
+
+        boolean asksShortRiskQuestion = questionLower.length() <= 40
+                && containsAnyV2(questionLower, "有什么风险", "会有什么风险", "有哪些风险", "后果是什么", "通常会带来哪些后果");
+
+        boolean hasComplexPrompt = questionLower.contains("请分析")
+                || questionLower.contains("分析")
+                || questionLower.contains("评估")
+                || questionLower.contains("控制点")
+                || questionLower.contains("整改建议")
+                || (questionLower.contains("从") && questionLower.contains("方面"))
+                || questionLower.contains("同时存在")
+                || questionLower.contains("组合主张");
+
+        boolean isShortKnowledgeQuestion = questionLower.length() <= 45 && isKnowledgeBaseTopic;
+
+        return (asksDirectQuestion && questionLower.length() <= 60 && !hasComplexPrompt)
+                || (isShortKnowledgeQuestion && !hasComplexPrompt)
+                || asksShortRiskQuestion;
+    }
+
+    private boolean containsAnyV2(String text, String... candidates) {
+        for (String candidate : candidates) {
+            if (text.contains(candidate)) {
+                return true;
+            }
+        }
         return false;
     }
 }

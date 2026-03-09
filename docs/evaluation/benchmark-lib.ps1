@@ -33,9 +33,110 @@ function Get-KeywordCoverageScore {
     return [math]::Round(($matched / $ExpectedPoints.Count) * 5, 2)
 }
 
+function Get-NormalizedBenchmarkSources {
+    param(
+        [object[]]$Sources
+    )
+
+    if (-not $Sources) {
+        return @()
+    }
+
+    $normalizedSources = New-Object System.Collections.Generic.List[string]
+
+    foreach ($source in $Sources) {
+        if ($null -eq $source) {
+            continue
+        }
+
+        $candidates = New-Object System.Collections.Generic.List[string]
+
+        if ($source -is [string]) {
+            $candidates.Add($source)
+        } elseif ($source -is [hashtable]) {
+            foreach ($key in @('source', 'sourceId', 'documentId', 'label', 'name')) {
+                if ($source.ContainsKey($key) -and $source[$key]) {
+                    $candidates.Add([string]$source[$key])
+                }
+            }
+        } else {
+            foreach ($propertyName in @('source', 'sourceId', 'documentId', 'label', 'name')) {
+                $property = $source.PSObject.Properties[$propertyName]
+                if ($property -and $property.Value) {
+                    $candidates.Add([string]$property.Value)
+                }
+            }
+        }
+
+        if ($candidates.Count -eq 0) {
+            $candidates.Add([string]$source)
+        }
+
+        foreach ($candidate in $candidates) {
+            $normalized = Normalize-BenchmarkText -Text $candidate
+            if ($normalized) {
+                $normalizedSources.Add($normalized)
+            }
+        }
+    }
+
+    return @($normalizedSources)
+}
+
+function Test-BenchmarkHealthResponse {
+    param(
+        [object]$Response
+    )
+
+    if ($null -eq $Response) {
+        return $false
+    }
+
+    if ($Response -is [System.Collections.IDictionary]) {
+        if ($Response.Contains('status') -and $Response['status'] -eq 'UP') {
+            return $true
+        }
+
+        if ($Response.Contains('data') -and $null -ne $Response['data']) {
+            $nestedData = $Response['data']
+            if ($nestedData -is [System.Collections.IDictionary]) {
+                if ($nestedData.Contains('status') -and $nestedData['status'] -eq 'UP') {
+                    return $true
+                }
+            }
+        }
+    }
+
+    $topLevelStatus = $Response.PSObject.Properties['status']
+    if ($topLevelStatus -and $topLevelStatus.Value -eq 'UP') {
+        return $true
+    }
+
+    $dataProperty = $Response.PSObject.Properties['data']
+    if ($dataProperty -and $null -ne $dataProperty.Value) {
+        $nestedStatus = $dataProperty.Value.PSObject.Properties['status']
+        if ($nestedStatus -and $nestedStatus.Value -eq 'UP') {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Get-BenchmarkHealthProbeUrls {
+    param(
+        [string]$BaseUrl
+    )
+
+    return @(
+        "$BaseUrl/health",
+        "$BaseUrl/health/detailed"
+    )
+}
+
 function Test-ExpectedSourceHit {
     param(
-        [string[]]$Sources,
+        [object[]]$Sources,
         [string[]]$ExpectedDocIds
     )
 
@@ -43,7 +144,7 @@ function Test-ExpectedSourceHit {
         return $false
     }
 
-    $normalizedSources = $Sources | ForEach-Object { Normalize-BenchmarkText -Text $_ }
+    $normalizedSources = Get-NormalizedBenchmarkSources -Sources $Sources
 
     foreach ($docId in $ExpectedDocIds) {
         $slug = Normalize-BenchmarkText -Text $docId

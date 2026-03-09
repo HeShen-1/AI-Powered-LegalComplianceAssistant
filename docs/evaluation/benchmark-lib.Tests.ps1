@@ -14,13 +14,40 @@ Describe 'Benchmark helper functions' {
     }
 
     It 'detects retrieval hit from source slug match' {
-        $hit = Test-ExpectedSourceHit -Sources @('kb-civil-breach.md (相关度: 0.93)', 'other-source.md (相关度: 0.61)') -ExpectedDocIds @('kb-civil-breach')
+        $hit = Test-ExpectedSourceHit -Sources @('kb-civil-breach.md (score 0.93)', 'other-source.md (score 0.61)') -ExpectedDocIds @('kb-civil-breach')
         $hit | Should Be $true
     }
 
     It 'returns false when no expected source matches' {
-        $hit = Test-ExpectedSourceHit -Sources @('kb-labor-termination.md (相关度: 0.88)') -ExpectedDocIds @('kb-civil-breach')
+        $hit = Test-ExpectedSourceHit -Sources @('kb-labor-termination.md (score 0.88)') -ExpectedDocIds @('kb-civil-breach')
         $hit | Should Be $false
+    }
+
+    It 'normalizes structured source objects into comparable text' {
+        $normalized = Get-NormalizedBenchmarkSources -Sources @(
+            [pscustomobject]@{
+                source = 'kb-civil-breach.md'
+                label = 'Civil breach rules'
+            }
+        )
+
+        ($normalized -contains 'kb-civil-breach.md') | Should Be $true
+    }
+
+    It 'accepts top-level UP health responses' {
+        $healthy = Test-BenchmarkHealthResponse -Response @{
+            status = 'UP'
+        }
+
+        $healthy | Should Be $true
+    }
+
+    It 'prefers lightweight health endpoint before detailed probes' {
+        $probeUrls = Get-BenchmarkHealthProbeUrls -BaseUrl 'http://localhost:18080/api/v1'
+
+        $probeUrls.Count | Should Be 2
+        $probeUrls[0] | Should Be 'http://localhost:18080/api/v1/health'
+        $probeUrls[1] | Should Be 'http://localhost:18080/api/v1/health/detailed'
     }
 
     It 'calculates p95 from numeric values' {

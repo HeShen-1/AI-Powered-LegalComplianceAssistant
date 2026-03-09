@@ -199,18 +199,21 @@ function Stop-ProcessTree {
 
 function Wait-ForHealth {
     param(
-        [string]$HealthUrl,
+        [string[]]$HealthUrls,
         [int]$TimeoutSeconds = 240
     )
 
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
-        try {
-            $response = Invoke-RestMethod -Method Get -Uri $HealthUrl -TimeoutSec 10
-            if ($response.status -eq "UP") {
-                return $true
+        foreach ($healthUrl in $HealthUrls) {
+            try {
+                $response = Invoke-RestMethod -Method Get -Uri $healthUrl -TimeoutSec 10
+                if (Test-BenchmarkHealthResponse -Response $response) {
+                    Write-Host "Benchmark server ready via $healthUrl" -ForegroundColor DarkGreen
+                    return $true
+                }
+            } catch {
             }
-        } catch {
         }
         Start-Sleep -Seconds 3
     }
@@ -361,7 +364,7 @@ $jdbc = Parse-JdbcPostgresUrl -JdbcUrl $envValues.DATABASE_URL
 $benchmarkId = Get-Date -Format "yyyyMMddHHmmss"
 $benchmarkDatabase = "legal_assistant_benchmark_$benchmarkId"
 $baseUrl = "http://localhost:$Port/api/v1"
-$healthUrl = "$baseUrl/health/detailed"
+$healthUrls = Get-BenchmarkHealthProbeUrls -BaseUrl $baseUrl
 $stdoutLog = Join-Path $repoRoot "logs\benchmark-$benchmarkId.out.log"
 $stderrLog = Join-Path $repoRoot "logs\benchmark-$benchmarkId.err.log"
 $uploadPath = Join-Path ([System.IO.Path]::GetTempPath()) "legal-assistant-benchmark-$benchmarkId"
@@ -395,7 +398,7 @@ $runnerEnv = @{
 try {
     $serverProcess = Start-BenchmarkServer -Environment $runnerEnv -WorkingDirectory $repoRoot -StdoutLog $stdoutLog -StderrLog $stderrLog
 
-    if (-not (Wait-ForHealth -HealthUrl $healthUrl)) {
+    if (-not (Wait-ForHealth -HealthUrls $healthUrls)) {
         throw "Benchmark server did not become healthy. Check $stdoutLog and $stderrLog"
     }
 
@@ -431,7 +434,7 @@ try {
             -Body @{
                 message = $case.question
                 modelType = $case.modeHint
-                modelName = "OLLAMA"
+                modelName = "DEEPSEEK"
                 useKnowledgeBase = $true
                 stream = $false
             }

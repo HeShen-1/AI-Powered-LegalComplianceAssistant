@@ -1,25 +1,21 @@
 ﻿{
-    "benchmarkId":  "20260308152141",
-    "benchmarkDatabase":  "legal_assistant_benchmark_20260308152141",
+    "benchmarkId":  "20260309140944",
+    "benchmarkDatabase":  "legal_assistant_benchmark_20260309140944",
     "baseUrl":  "http://localhost:18080/api/v1",
     "kbDocumentsImported":  6,
     "qaCases":  24,
     "contractCases":  3,
-    "retrievalHitRate":  0,
-    "answerCompletenessAverage":  0.68,
+    "retrievalHitRate":  0.4583,
+    "answerCompletenessAverage":  1.37,
     "structuredSuccessRate":  0,
-    "p95LatencyMs":  295345,
-    "qaP95LatencyMs":  57219,
-    "contractP95LatencyMs":  310328,
+    "p95LatencyMs":  393786,
+    "qaP95LatencyMs":  393786,
+    "contractP95LatencyMs":  373018,
     "fallbackTriggerRate":  0,
     "actualModels":  [
                          {
-                             "model":  "LangChain4j",
-                             "count":  11
-                         },
-                         {
                              "model":  "deepseek-chat",
-                             "count":  13
+                             "count":  24
                          }
                      ],
     "routeReasons":  [
