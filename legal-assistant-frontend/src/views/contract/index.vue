@@ -224,8 +224,9 @@ import {
   Download,
   InfoFilled
 } from '@element-plus/icons-vue'
-import type { UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
+import type { TagProps, UploadInstance, UploadProps, UploadRawFile } from 'element-plus'
 import { useUserStore } from '@/store/modules/user'
+import { createAnalysisSSEAuth, type ContractAnalysisStream } from '@/api/contractService'
 
 // 类型定义
 interface AnalysisLog {
@@ -253,6 +254,7 @@ interface ClauseItem {
 }
 
 interface AnalysisResult {
+  id?: number
   riskCount: number
   clauseCount: number
   score: number
@@ -267,12 +269,13 @@ interface AnalysisResult {
     rules: string[]
     description: string
   }
+  originalFilename?: string
 }
 
 interface ContractReview {
   id: number
-  filename: string
-  status: string
+  originalFilename: string
+  reviewStatus: string
   riskLevel?: 'HIGH' | 'MEDIUM' | 'LOW'
 }
 
@@ -283,13 +286,13 @@ const uploadRef = ref<UploadInstance>()
 const logsContainer = ref<HTMLElement>()
 const uploadProgress = ref(0)
 const currentReview = ref<ContractReview | null>(null)
-const analysisStatus = ref<'pending' | 'processing' | 'completed' | 'failed'>('pending')
+const analysisStatus = ref<'pending' | 'processing' | 'completed' | 'failed' | 'timeout'>('pending')
 const currentStep = ref(0)
 const analysisLogs = ref<AnalysisLog[]>([])
 const analysisResult = ref<AnalysisResult | null>(null)
 const activeClause = ref<number[]>([])
 const isNormalClose = ref(false) // 标记是否为正常关闭SSE连接
-let eventSource: EventSource | null = null
+let eventSource: ContractAnalysisStream | null = null
 
 // 计算属性
 const uploadAction = computed(() => '/api/v1/contracts/upload')
@@ -302,14 +305,14 @@ const uploadHeaders = computed(() => {
   return headers
 })
 
-const riskLevelType = computed(() => {
+const riskLevelType = computed<TagProps['type']>(() => {
   if (!analysisResult.value) return 'info'
   const typeMap = {
     HIGH: 'danger',
     MEDIUM: 'warning',
     LOW: 'success'
-  }
-  return typeMap[analysisResult.value.riskLevel] as 'danger' | 'warning' | 'success'
+  } as const
+  return typeMap[analysisResult.value.riskLevel]
 })
 
 const riskLevelText = computed(() => {
@@ -327,12 +330,12 @@ const formatLogTime = (timestamp: string) => {
   return new Date(timestamp).toLocaleTimeString('zh-CN')
 }
 
-const getRiskTagType = (level: string) => {
+const getRiskTagType = (level: string): TagProps['type'] => {
   const typeMap = {
     HIGH: 'danger',
     MEDIUM: 'warning',
     LOW: 'success'
-  }
+  } as const
   return typeMap[level as keyof typeof typeMap] || 'info'
 }
 
@@ -348,7 +351,7 @@ const getScoringRulesTooltip = () => {
   
   if (rules.rules && rules.rules.length > 0) {
     content += '<div style="margin-bottom: 8px;">'
-    rules.rules.forEach((rule, index) => {
+    rules.rules.forEach((rule) => {
       content += `<div style="margin-bottom: 4px;">• ${rule}</div>`
     })
     content += '</div>'
@@ -406,7 +409,7 @@ const handleUploadSuccess = (response: any) => {
     currentReview.value = {
       id: response.data.reviewId,
       originalFilename: response.data.originalFilename || '未知文件',
-      reviewStatus: response.data.reviewStatus
+      reviewStatus: response.data.status
     }
     
     ElMessage.success('文件上传成功，开始分析...')
@@ -459,11 +462,9 @@ const startAnalysis = (reviewId: number) => {
   }
   
   // 在开发环境下需要使用完整的URL指向后端服务器
-  const isDev = import.meta.env.DEV
-  const baseUrl = isDev ? 'http://localhost:8080' : ''
-  const url = `${baseUrl}/api/v1/contracts/${reviewId}/analyze-async?token=${encodeURIComponent(token)}`
-  console.log('Creating SSE connection to:', url)
-  eventSource = new EventSource(url)
+  addLog('info', '使用 Authorization Header 启动流式合同审查')
+  console.log('Creating auth SSE stream for reviewId:', reviewId)
+  eventSource = createAnalysisSSEAuth(reviewId, token)
   
   // 监听默认消息事件
   eventSource.onmessage = (event) => {
@@ -547,10 +548,11 @@ const startAnalysis = (reviewId: number) => {
   
   // 监听服务器主动发送的错误事件（如果有的话）
   eventSource.addEventListener('error', (event) => {
+    const messageEvent = event as MessageEvent<string>
     try {
       // 检查是否有数据，如果没有数据则跳过JSON解析
-      if (event.data && event.data !== 'undefined') {
-        const data = JSON.parse(event.data)
+      if (messageEvent.data && messageEvent.data !== 'undefined') {
+        const data = JSON.parse(messageEvent.data)
         handleAnalysisEvent({ type: 'error', ...data })
       } else {
         console.log('收到error事件但无数据，可能是连接级错误')
@@ -558,14 +560,15 @@ const startAnalysis = (reviewId: number) => {
       }
     } catch (error) {
       console.error('Failed to parse error event:', error)
-      console.log('原始事件数据:', event.data)
+      console.log('原始事件数据:', messageEvent.data)
     }
   })
   
   eventSource.addEventListener('timeout', (event) => {
+    const messageEvent = event as MessageEvent<string>
     try {
-      if (event.data && event.data !== 'undefined') {
-        const data = JSON.parse(event.data)
+      if (messageEvent.data && messageEvent.data !== 'undefined') {
+        const data = JSON.parse(messageEvent.data)
         handleAnalysisEvent({ type: 'timeout', ...data })
       } else {
         // 处理超时事件无数据的情况
@@ -772,77 +775,6 @@ const handleAnalysisEvent = (data: any) => {
       eventSource = null
       break
   }
-}
-
-// 模拟分析过程（用于演示）
-const simulateAnalysis = () => {
-  const steps = [
-    { step: 0, message: '正在解析文档结构...' },
-    { step: 1, message: '正在识别风险条款...' },
-    { step: 2, message: '正在分析关键条款...' },
-    { step: 3, message: '正在生成分析报告...' }
-  ]
-  
-  let stepIndex = 0
-  const interval = setInterval(() => {
-    if (stepIndex < steps.length) {
-      const step = steps[stepIndex]
-      currentStep.value = step.step
-      addLog('info', step.message)
-      stepIndex++
-    } else {
-      clearInterval(interval)
-      
-      // 模拟分析结果
-      analysisResult.value = {
-        riskCount: 3,
-        clauseCount: 5,
-        score: 75,
-        riskLevel: 'MEDIUM',
-        risks: [
-          {
-            level: 'HIGH',
-            title: '违约责任条款不明确',
-            description: '合同中违约责任的具体承担方式和赔偿标准不够明确，可能导致纠纷时难以执行。',
-            suggestion: '建议明确违约责任的具体形式和计算方式。'
-          },
-          {
-            level: 'MEDIUM',
-            title: '付款条件存在风险',
-            description: '付款时间节点设置不够合理，可能影响资金流。',
-            suggestion: '建议调整付款节点，增加保障措施。'
-          },
-          {
-            level: 'LOW',
-            title: '知识产权条款需完善',
-            description: '知识产权归属和使用权限需要进一步明确。',
-            suggestion: '建议补充详细的知识产权条款。'
-          }
-        ],
-        clauses: [
-          {
-            title: '合同标的',
-            content: '本合同标的为软件开发服务...',
-            analysis: '标的描述较为清晰，但建议增加更详细的技术规格说明。'
-          },
-          {
-            title: '履行期限',
-            content: '项目开发周期为6个月...',
-            analysis: '时间安排合理，但建议增加里程碑节点。'
-          },
-          {
-            title: '价款支付',
-            content: '总价款为100万元，分三期支付...',
-            analysis: '付款安排基本合理，建议增加验收标准。'
-          }
-        ],
-        summary: '该合同整体结构完整，但在违约责任、付款条件等方面存在一定风险，建议进行相应修改。'
-      }
-      
-      analysisStatus.value = 'completed'
-      addLog('success', '分析完成！')
-    }
-  }, 2000)
 }
 
 const cancelAnalysis = async () => {

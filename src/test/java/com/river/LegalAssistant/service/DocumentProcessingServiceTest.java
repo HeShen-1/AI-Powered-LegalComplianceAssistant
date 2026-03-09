@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -98,6 +99,8 @@ class DocumentProcessingServiceTest {
             embeddingModel,
             embeddingStore
         );
+        ReflectionTestUtils.setField(documentProcessingService, "minChunkSize", 200);
+        ReflectionTestUtils.setField(documentProcessingService, "enableQualityFilter", true);
     }
     
     @Test

@@ -42,7 +42,7 @@ export const createChatSSE = (
       'Accept': 'text/event-stream',
       'Cache-Control': 'no-cache'
     }
-  }).then(response => {
+  }).then(() => {
     // 如果后端支持直接返回EventSource连接
     // 这里可能需要根据实际后端实现调整
     const eventSource = new EventSource(`/api${endpoint}`, {

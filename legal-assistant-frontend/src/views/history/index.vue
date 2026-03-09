@@ -180,29 +180,25 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type TagProps } from 'element-plus'
 import {
   Refresh,
   Search,
   Document
 } from '@element-plus/icons-vue'
-import { useUserStore } from '@/store/modules/user'
 import { getMyReviewsApi, downloadReportApi, deleteReviewApi } from '@/api/contractService'
 
 // 类型定义
 interface ContractReview {
   id: number
-  userId: number
-  filename: string
-  filePath: string
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+  originalFilename: string
+  reviewStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
   riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH'
   createdAt: string
   completedAt?: string
+  totalRisks?: number
   result?: any
 }
-
-const userStore = useUserStore()
 
 // 响应式数据
 const loading = ref(false)
@@ -253,12 +249,17 @@ const filteredList = computed(() => {
     list.sort((a, b) => {
       const aVal = a[sortField.value as keyof ContractReview]
       const bVal = b[sortField.value as keyof ContractReview]
-      
-      if (sortOrder.value === 'ascending') {
-        return aVal > bVal ? 1 : -1
-      } else {
-        return aVal < bVal ? 1 : -1
-      }
+
+      if (aVal == null && bVal == null) return 0
+      if (aVal == null) return 1
+      if (bVal == null) return -1
+
+      const comparison =
+        typeof aVal === 'number' && typeof bVal === 'number'
+          ? aVal - bVal
+          : String(aVal).localeCompare(String(bVal))
+
+      return sortOrder.value === 'ascending' ? comparison : -comparison
     })
   }
   
@@ -276,13 +277,13 @@ const formatDateTime = (dateStr: string) => {
   })
 }
 
-const getStatusType = (status: string) => {
+const getStatusType = (status: string): TagProps['type'] => {
   const typeMap = {
     PENDING: 'info',
     PROCESSING: 'warning',
     COMPLETED: 'success',
     FAILED: 'danger'
-  }
+  } as const
   return typeMap[status as keyof typeof typeMap] || 'info'
 }
 
@@ -296,12 +297,12 @@ const getStatusText = (status: string) => {
   return textMap[status as keyof typeof textMap] || status
 }
 
-const getRiskType = (level: string) => {
+const getRiskType = (level: string): TagProps['type'] => {
   const typeMap = {
     LOW: 'success',
     MEDIUM: 'warning',
     HIGH: 'danger'
-  }
+  } as const
   return typeMap[level as keyof typeof typeMap] || 'info'
 }
 

@@ -169,12 +169,6 @@ const activeMenu = computed(() => route.path)
 
 // 面包屑导航
 const breadcrumbList = computed(() => {
-  const matched = route.matched.filter(item => item.meta && item.meta.title)
-  const breadcrumbs = matched.map(item => ({
-    path: item.path,
-    title: item.meta?.title || ''
-  }))
-  
   // 根据当前路由生成面包屑
   const pathMap: Record<string, string> = {
     '/dashboard': '工作台',

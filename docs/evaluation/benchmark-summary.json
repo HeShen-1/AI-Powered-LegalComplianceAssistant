@@ -1,0 +1,43 @@
+﻿{
+    "benchmarkId":  "20260308152141",
+    "benchmarkDatabase":  "legal_assistant_benchmark_20260308152141",
+    "baseUrl":  "http://localhost:18080/api/v1",
+    "kbDocumentsImported":  6,
+    "qaCases":  24,
+    "contractCases":  3,
+    "retrievalHitRate":  0,
+    "answerCompletenessAverage":  0.68,
+    "structuredSuccessRate":  0,
+    "p95LatencyMs":  295345,
+    "qaP95LatencyMs":  57219,
+    "contractP95LatencyMs":  310328,
+    "fallbackTriggerRate":  0,
+    "actualModels":  [
+                         {
+                             "model":  "LangChain4j",
+                             "count":  11
+                         },
+                         {
+                             "model":  "deepseek-chat",
+                             "count":  13
+                         }
+                     ],
+    "routeReasons":  [
+                         {
+                             "route":  "simple_query",
+                             "count":  5
+                         },
+                         {
+                             "route":  "complex_analysis",
+                             "count":  7
+                         },
+                         {
+                             "route":  "advanced_rag_direct",
+                             "count":  6
+                         },
+                         {
+                             "route":  "default",
+                             "count":  6
+                         }
+                     ]
+}

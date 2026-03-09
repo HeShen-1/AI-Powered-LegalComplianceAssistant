@@ -117,6 +117,9 @@ public class UnifiedChatController {
                 case UNIFIED -> handleUnifiedChat(request);
                 default -> handleBasicChat(request);
             };
+            long duration = System.currentTimeMillis() - startTime;
+            response.setDuration(duration);
+            enrichMetadata(request, response, duration);
             
             // 保存AI助手的回复（如果提供了conversationId）
             if (sessionId != null && !sessionId.trim().isEmpty() && response.getAnswer() != null) {
@@ -139,10 +142,6 @@ public class UnifiedChatController {
                     log.warn("保存助手回复失败", e);
                 }
             }
-            
-            // 设置处理耗时
-            long duration = System.currentTimeMillis() - startTime;
-            response.setDuration(duration);
             
             log.info("统一聊天请求处理完成，耗时: {} ms", duration);
             
@@ -541,25 +540,17 @@ public class UnifiedChatController {
         String question = request.getMessage();
         String conversationId = request.getConversationId();
         boolean useMemory = conversationId != null && !conversationId.trim().isEmpty();
-        
-        // 如果没有提供conversationId但请求使用记忆，自动生成一个
-        if (useMemory && conversationId.trim().isEmpty()) {
-            conversationId = chatMemoryService.generateConversationId();
-            log.info("自动生成会话ID: {}", conversationId);
-        }
-        
+
         AiService.LocalRagResult ragResult;
-        
+
         if (useMemory) {
-            // 使用带记忆的RAG聊天
-            ChatMemoryService.ModelType modelType = 
+            ChatMemoryService.ModelType modelType =
                 ChatMemoryService.ModelType.valueOf(request.getModelName().toUpperCase());
             ragResult = aiService.chatWithMemory(question, conversationId, modelType);
         } else {
-            // 使用无记忆的RAG聊天
             ragResult = aiService.localKnowledgeChat(question);
         }
-        
+
         return UnifiedChatResponse.builder()
                 .question(question)
                 .answer(ragResult.answer())
@@ -572,52 +563,45 @@ public class UnifiedChatController {
                 .memoryEnabled(useMemory)
                 .responseType("basic_rag_chat")
                 .timestamp(LocalDateTime.now())
+                .metadata(new HashMap<>())
                 .build();
     }
-    
-    /**
-     * 处理高级聊天请求（ADVANCED模式）
-     */
+
     private UnifiedChatResponse handleAdvancedChat(UnifiedChatRequest request) {
         String question = request.getMessage();
-        
-        // 检查DeepSeek服务是否可用
-        if (!deepSeekService.isAvailable()) {
-            return UnifiedChatResponse.builder()
-                    .question(question)
-                    .answer("抱歉，高级法律顾问服务暂时不可用，请稍后重试或使用基础模式")
-                    .modelType("ADVANCED")
-                    .modelName("DEEPSEEK")
-                    .timestamp(LocalDateTime.now())
-                    .build();
+        boolean preferredModelAvailable = deepSeekService.isAvailable();
+
+        if (!preferredModelAvailable) {
+            log.warn("DeepSeek unavailable, ADVANCED mode will fall back through AgentService");
         }
-        
-        // 使用Agent进行法律咨询
-        AgentService.ConsultationResult consultationResult = 
+
+        AgentService.ConsultationResult consultationResult =
             agentService.consultLegalMatterWithDetails(question);
-        
+
+        boolean fallbackUsed = !consultationResult.isDeepSeekUsed();
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put("service", consultationResult.serviceUsed());
+        metadata.put("isDeepSeek", consultationResult.isDeepSeekUsed());
+        metadata.put("preferredModelAvailable", preferredModelAvailable);
+        metadata.put("fallbackUsed", fallbackUsed);
+        metadata.put("modelUsed", consultationResult.modelUsed());
+
         return UnifiedChatResponse.builder()
                 .question(question)
                 .answer(consultationResult.answer())
-                .conversationId(null) // Agent暂不支持会话记忆
+                .conversationId(null)
                 .modelType("ADVANCED")
                 .modelName(consultationResult.modelUsed())
-                .usedKnowledgeBase(true) // Agent会自动使用知识库
+                .usedKnowledgeBase(true)
                 .hasKnowledgeMatch(true)
-                .sourceCount(0) // Agent不返回来源信息
+                .sourceCount(0)
                 .memoryEnabled(false)
                 .responseType("advanced_legal_consultation")
                 .timestamp(LocalDateTime.now())
-                .metadata(Map.of(
-                    "service", consultationResult.serviceUsed(),
-                    "isDeepSeek", consultationResult.isDeepSeekUsed()
-                ))
+                .metadata(metadata)
                 .build();
     }
-    
-    /**
-     * 处理Advanced RAG聊天请求
-     */
+
     private UnifiedChatResponse handleAdvancedRagChat(UnifiedChatRequest request) {
         String question = request.getMessage();
         String sessionId = request.getConversationId();
@@ -648,10 +632,7 @@ public class UnifiedChatController {
                 .memoryEnabled(true) // Advanced RAG内置记忆功能
                 .responseType("advanced_rag_chat")
                 .timestamp(LocalDateTime.now())
-                .metadata(Map.of(
-                    "status", result.status(),
-                    "sessionId", result.sessionId()
-                ))
+                .metadata(buildAdvancedRagMetadata(result))
                 .build();
     }
 
@@ -663,45 +644,32 @@ public class UnifiedChatController {
         String question = request.getMessage().toLowerCase();
         UnifiedChatResponse response;
 
-        // 判断问题复杂度和类型（与流式模式使用相同的逻辑）
         boolean isComplexAnalysis = isComplexLegalAnalysis(question);
         boolean isSimpleQuery = isSimpleLegalQuery(question);
-        
+
         if (isSimpleQuery) {
-            // 简单查询：使用RAG快速响应
-            log.info("统一模式路由到 -> Advanced RAG (简单查询)");
+            log.info("Unified mode routed to Advanced RAG for simple query");
             response = handleAdvancedRagChat(request);
             response.setResponseType("unified_to_advanced_rag_simple");
         } else if (isComplexAnalysis) {
-            // 复杂分析：使用Agent进行深度推理
-            log.info("统一模式路由到 -> Advanced Agent (复杂分析)");
+            log.info("Unified mode routed to Advanced Agent for complex analysis");
             response = handleAdvancedChat(request);
             response.setResponseType("unified_to_advanced_agent_complex");
         } else {
-            // 默认使用Agent
-            log.info("统一模式路由到 -> Advanced Agent (默认)");
+            log.info("Unified mode routed to Advanced Agent by default");
             response = handleAdvancedChat(request);
             response.setResponseType("unified_to_advanced_agent_default");
         }
-        
-        // 在元数据中标记这是由统一模式处理的
+
         Map<String, Object> metadata = new HashMap<>(response.getMetadata() != null ? response.getMetadata() : Map.of());
         metadata.put("unified_mode_routed", true);
-        metadata.put("routing_reason", isSimpleQuery ? "simple_query" : (isComplexAnalysis ? "complex_analysis" : "default"));
+        metadata.put("routeReason", isSimpleQuery ? "simple_query" : (isComplexAnalysis ? "complex_analysis" : "default"));
         response.setMetadata(metadata);
-        
+
         return response;
     }
 
-    /**
-     * 处理统一模式的流式聊天请求
-     * 根据用户问题智能选择最优流式处理策略
-     * 
-     * 路由策略：
-     * - Agent模式：适合需要复杂推理、多步分析、案例分析的场景
-     * - RAG模式：适合简单的法律条文查询、概念解释
-     */
-    private void handleUnifiedStreamChat(UnifiedChatRequest request, SseEmitter emitter, StringBuilder responseBuilder) {
+private void handleUnifiedStreamChat(UnifiedChatRequest request, SseEmitter emitter, StringBuilder responseBuilder) {
         String question = request.getMessage().toLowerCase();
         
         // 判断问题复杂度和类型
@@ -792,6 +760,69 @@ public class UnifiedChatController {
      * ✅ 新增：从响应中提取实际使用的模型
      * 分析响应的metadata，确定实际使用了哪个AI模型
      */
+    private Map<String, Object> buildAdvancedRagMetadata(AdvancedLegalRagService.AdvancedRagResult result) {
+        Map<String, Object> metadata = new HashMap<>();
+        if (result.status() != null) {
+            metadata.put("status", result.status());
+        }
+        if (result.sessionId() != null) {
+            metadata.put("sessionId", result.sessionId());
+        }
+        return metadata;
+    }
+
+    private void enrichMetadata(UnifiedChatRequest request, UnifiedChatResponse response, long latencyMs) {
+        Map<String, Object> metadata = new HashMap<>();
+        if (response.getMetadata() != null) {
+            metadata.putAll(response.getMetadata());
+        }
+
+        metadata.put("actualModel", extractActualModelFromResponse(response));
+        metadata.put("routeReason", metadata.getOrDefault("routeReason", determineRouteReason(request, response)));
+        metadata.put("fallbackUsed", resolveFallbackUsed(request, response, metadata));
+        metadata.put("sourceCount", response.getSourceCount());
+        metadata.put("latencyMs", latencyMs);
+        response.setMetadata(metadata);
+    }
+
+    private String determineRouteReason(UnifiedChatRequest request, UnifiedChatResponse response) {
+        if (request.getModelType() == UnifiedChatRequest.ModelType.UNIFIED) {
+            String responseType = response.getResponseType();
+            if ("unified_to_advanced_rag_simple".equals(responseType)) {
+                return "simple_query";
+            }
+            if ("unified_to_advanced_agent_complex".equals(responseType)) {
+                return "complex_analysis";
+            }
+            return "default";
+        }
+
+        return switch (request.getModelType()) {
+            case ADVANCED -> "advanced_direct";
+            case ADVANCED_RAG -> "advanced_rag_direct";
+            case BASIC -> "basic_direct";
+            case UNIFIED -> "default";
+        };
+    }
+
+    private boolean resolveFallbackUsed(UnifiedChatRequest request, UnifiedChatResponse response, Map<String, Object> metadata) {
+        Object existingValue = metadata.get("fallbackUsed");
+        if (existingValue instanceof Boolean booleanValue) {
+            return booleanValue;
+        }
+
+        if (request.getModelType() == UnifiedChatRequest.ModelType.ADVANCED) {
+            return !isDeepSeekResponse(response);
+        }
+
+        return false;
+    }
+
+    private boolean isDeepSeekResponse(UnifiedChatResponse response) {
+        String actualModel = extractActualModelFromResponse(response).toLowerCase();
+        return actualModel.contains("deepseek");
+    }
+
     private String extractActualModelFromResponse(UnifiedChatResponse response) {
         if (response == null) {
             return "unknown";

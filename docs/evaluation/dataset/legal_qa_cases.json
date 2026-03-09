@@ -1,0 +1,219 @@
+﻿[
+  {
+    "id": "qa-01",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "合同违约后通常有哪些承担责任的方式？",
+    "expectedDocIds": ["kb-civil-breach"],
+    "expectedPoints": ["继续履行", "采取补救措施", "赔偿损失"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-02",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "违约金和损害赔偿可以同时主张吗？",
+    "expectedDocIds": ["kb-civil-breach"],
+    "expectedPoints": ["根据约定处理", "过高或过低可请求调整"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-03",
+    "difficulty": "complex",
+    "modeHint": "UNIFIED",
+    "question": "如果合同中同时约定了违约金和继续履行义务，乙方违约后甲方可以如何组合主张？",
+    "expectedDocIds": ["kb-civil-breach"],
+    "expectedPoints": ["结合合同约定", "继续履行", "违约金调整", "实际损失证明"],
+    "expectedRouteReason": "complex_analysis"
+  },
+  {
+    "id": "qa-04",
+    "difficulty": "simple",
+    "modeHint": "ADVANCED_RAG",
+    "question": "迟延履行责任在知识库里对应哪些处理原则？",
+    "expectedDocIds": ["kb-civil-breach"],
+    "expectedPoints": ["迟延履行", "补救措施", "损失扩大责任"],
+    "expectedRouteReason": "advanced_rag_direct"
+  },
+  {
+    "id": "qa-05",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "电商平台处理七天无理由退货时，哪些情形可以不适用？",
+    "expectedDocIds": ["kb-ecommerce-consumer-rights"],
+    "expectedPoints": ["定制商品", "鲜活易腐", "已拆封音像制品"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-06",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "经营者披露促销规则时需要注意什么？",
+    "expectedDocIds": ["kb-ecommerce-consumer-rights"],
+    "expectedPoints": ["真实完整", "显著展示", "不得误导"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-07",
+    "difficulty": "complex",
+    "modeHint": "UNIFIED",
+    "question": "请分析一个直播电商页面同时存在先涨价再打折和退货限制条款时的主要消费者合规风险。",
+    "expectedDocIds": ["kb-ecommerce-consumer-rights"],
+    "expectedPoints": ["价格欺诈风险", "格式条款风险", "信息披露义务", "消费者救济"],
+    "expectedRouteReason": "complex_analysis"
+  },
+  {
+    "id": "qa-08",
+    "difficulty": "simple",
+    "modeHint": "ADVANCED_RAG",
+    "question": "平台对商品质量争议通常有哪些先行处理义务？",
+    "expectedDocIds": ["kb-ecommerce-consumer-rights"],
+    "expectedPoints": ["投诉受理", "协助取证", "先行赔付"],
+    "expectedRouteReason": "advanced_rag_direct"
+  },
+  {
+    "id": "qa-09",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "用人单位解除劳动合同通常需要满足哪些法定条件？",
+    "expectedDocIds": ["kb-labor-termination"],
+    "expectedPoints": ["法定事由", "提前通知或补偿", "证据留存"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-10",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "试用期员工可以随意辞退吗？",
+    "expectedDocIds": ["kb-labor-termination"],
+    "expectedPoints": ["不能随意辞退", "需要证明不符合录用条件", "程序要求"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-11",
+    "difficulty": "complex",
+    "modeHint": "UNIFIED",
+    "question": "请从证据、程序和补偿三方面分析企业批量优化裁员时的主要劳动法风险。",
+    "expectedDocIds": ["kb-labor-termination"],
+    "expectedPoints": ["裁员条件", "程序公示", "工会或职工说明", "经济补偿"],
+    "expectedRouteReason": "complex_analysis"
+  },
+  {
+    "id": "qa-12",
+    "difficulty": "simple",
+    "modeHint": "ADVANCED_RAG",
+    "question": "未提前通知解除劳动合同通常会带来哪些后果？",
+    "expectedDocIds": ["kb-labor-termination"],
+    "expectedPoints": ["代通知金", "赔偿责任", "仲裁诉讼风险"],
+    "expectedRouteReason": "advanced_rag_direct"
+  },
+  {
+    "id": "qa-13",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "企业向境外提供个人信息前通常要做哪些准备？",
+    "expectedDocIds": ["kb-data-cross-border"],
+    "expectedPoints": ["合法性基础", "影响评估", "合同或认证安排"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-14",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "跨境数据传输里，哪些信息主体告知事项最关键？",
+    "expectedDocIds": ["kb-data-cross-border"],
+    "expectedPoints": ["接收方信息", "处理目的", "处理方式", "权利救济"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-15",
+    "difficulty": "complex",
+    "modeHint": "UNIFIED",
+    "question": "如果一家 SaaS 公司把中国用户数据同步到海外客服系统，请分析主要的跨境合规风险和控制点。",
+    "expectedDocIds": ["kb-data-cross-border"],
+    "expectedPoints": ["最小必要", "出境评估", "第三方控制", "安全事件响应"],
+    "expectedRouteReason": "complex_analysis"
+  },
+  {
+    "id": "qa-16",
+    "difficulty": "simple",
+    "modeHint": "ADVANCED_RAG",
+    "question": "什么情况下企业应当重新评估既有的数据出境安排？",
+    "expectedDocIds": ["kb-data-cross-border"],
+    "expectedPoints": ["处理目的变化", "数据类型变化", "接收方变化", "风险升级"],
+    "expectedRouteReason": "advanced_rag_direct"
+  },
+  {
+    "id": "qa-17",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "广告文案里使用“最高级”“最佳”等表述会有什么风险？",
+    "expectedDocIds": ["kb-advertising-compliance"],
+    "expectedPoints": ["绝对化用语", "虚假宣传", "行政处罚风险"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-18",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "KOL 推广场景下，广告标识通常需要做到什么程度？",
+    "expectedDocIds": ["kb-advertising-compliance"],
+    "expectedPoints": ["显著标识", "避免误导", "商业合作关系说明"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-19",
+    "difficulty": "complex",
+    "modeHint": "UNIFIED",
+    "question": "请分析一家功能饮料品牌在短视频投放中使用夸大功效和未显著标识广告合作时的合规风险。",
+    "expectedDocIds": ["kb-advertising-compliance"],
+    "expectedPoints": ["虚假宣传", "广告标识不足", "平台与品牌责任", "整改建议"],
+    "expectedRouteReason": "complex_analysis"
+  },
+  {
+    "id": "qa-20",
+    "difficulty": "simple",
+    "modeHint": "ADVANCED_RAG",
+    "question": "价格促销文案中常见的宣传合规底线有哪些？",
+    "expectedDocIds": ["kb-advertising-compliance"],
+    "expectedPoints": ["真实价格依据", "活动期限", "库存限制", "赠品说明"],
+    "expectedRouteReason": "advanced_rag_direct"
+  },
+  {
+    "id": "qa-21",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "处理个人信息时，最小必要原则通常怎么理解？",
+    "expectedDocIds": ["kb-personal-info-processing"],
+    "expectedPoints": ["与目的直接相关", "范围最小", "保存期限合理"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-22",
+    "difficulty": "simple",
+    "modeHint": "UNIFIED",
+    "question": "向用户展示隐私政策时，哪些核心信息一定要说清楚？",
+    "expectedDocIds": ["kb-personal-info-processing"],
+    "expectedPoints": ["处理目的", "处理方式", "保存期限", "用户权利"],
+    "expectedRouteReason": "simple_query"
+  },
+  {
+    "id": "qa-23",
+    "difficulty": "complex",
+    "modeHint": "UNIFIED",
+    "question": "请分析一个 App 同时存在默认勾选授权、超范围收集和注销路径隐藏时的个人信息合规风险。",
+    "expectedDocIds": ["kb-personal-info-processing"],
+    "expectedPoints": ["同意有效性", "最小必要原则", "用户权利保障", "整改路径"],
+    "expectedRouteReason": "complex_analysis"
+  },
+  {
+    "id": "qa-24",
+    "difficulty": "simple",
+    "modeHint": "ADVANCED_RAG",
+    "question": "企业通常应如何设置个人信息访问与删除响应机制？",
+    "expectedDocIds": ["kb-personal-info-processing"],
+    "expectedPoints": ["受理渠道", "身份核验", "期限管理", "留痕机制"],
+    "expectedRouteReason": "advanced_rag_direct"
+  }
+]
+

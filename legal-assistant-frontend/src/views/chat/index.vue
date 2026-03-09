@@ -69,6 +69,15 @@
                   <span v-if="message.isStreaming" class="typing-cursor"></span>
                 </div>
                 <div class="message-time">{{ formatTime(message.timestamp) }}</div>
+                <div v-if="message.metadata" class="message-meta">
+                  <span
+                    v-for="badge in buildMetaBadges(message.metadata)"
+                    :key="`${message.id}-${badge.label}`"
+                    class="meta-badge"
+                  >
+                    {{ badge.label }}: {{ badge.value }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -118,31 +127,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { marked } from 'marked'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
 import {
   ChatDotRound,
-  User,
-  Delete,
   DArrowLeft,
   DArrowRight,
   ArrowDown
 } from '@element-plus/icons-vue'
-import { createChatStreamPost, resetChatSessionApi, getChatHistoryApi } from '@/api/chatService'
-import type { ChatMessage, UnifiedChatRequest, ChatMessageDto } from '@/types/api'
+import { createChatStreamPost } from '@/api/chatService'
+import type { ChatMessage, UnifiedChatMetadata, UnifiedChatRequest, ChatMessageDto } from '@/types/api'
 import ChatHistoryPanel from './ChatHistoryPanel.vue'
 import { useChatHistoryStore } from '@/store/modules/chatHistory'
 
 // 配置marked - 支持流式渲染的配置
-marked.setOptions({
-  highlight: function(code, lang) {
-    const language = hljs.getLanguage(lang) ? lang : 'plaintext'
-    return hljs.highlight(code, { language }).value
-  },
-  langPrefix: 'hljs language-',
+marked.use({
   breaks: true,
   gfm: true, // 支持GitHub风格的Markdown
   pedantic: false // 不严格遵循markdown.pl，更宽容的解析
@@ -158,7 +160,6 @@ const isLoading = ref(false)
 const chatMode = ref<'BASIC' | 'ADVANCED' | 'ADVANCED_RAG' | 'UNIFIED'>('UNIFIED') // 统一模式
 const sessionId = ref<string | null>(null) // 初始化为null，表示新会话
 const messages = ref<ChatMessage[]>([])
-const aiAvatar = ref('')
 const isSidebarCollapsed = ref(false) // 侧边栏折叠状态
 const isNewSession = ref(true) // 标记是否为新会话
 const showScrollToBottom = ref(false) // 控制滚动到底部按钮的显示
@@ -191,6 +192,60 @@ const formatTime = (timestamp: string) => {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+const formatRouteReason = (routeReason?: string) => {
+  const routeReasonMap: Record<string, string> = {
+    simple_query: '简单问答 → RAG',
+    complex_analysis: '复杂分析 → Agent',
+    advanced_direct: '高级直连',
+    advanced_rag_direct: '高级检索',
+    basic_direct: '基础模式',
+    default: '默认路由'
+  }
+  return routeReason ? (routeReasonMap[routeReason] || routeReason) : ''
+}
+
+const inferKnowledgeBaseUsage = (metadata?: UnifiedChatMetadata) => {
+  if (!metadata) return undefined
+  if (typeof metadata.usedKnowledgeBase === 'boolean') {
+    return metadata.usedKnowledgeBase
+  }
+  if (metadata.routeReason === 'simple_query' || metadata.routeReason === 'advanced_rag_direct') {
+    return true
+  }
+  if (typeof metadata.sourceCount === 'number') {
+    return metadata.sourceCount > 0
+  }
+  return undefined
+}
+
+const buildMetaBadges = (metadata?: UnifiedChatMetadata) => {
+  if (!metadata) return []
+
+  const badges: Array<{ label: string; value: string }> = []
+  const knowledgeBaseUsed = inferKnowledgeBaseUsage(metadata)
+
+  if (metadata.actualModel) {
+    badges.push({ label: '模型', value: metadata.actualModel })
+  }
+  if (metadata.routeReason) {
+    badges.push({ label: '路由', value: formatRouteReason(metadata.routeReason) })
+  }
+  if (typeof knowledgeBaseUsed === 'boolean') {
+    badges.push({ label: '知识库', value: knowledgeBaseUsed ? '已使用' : '未使用' })
+  }
+  if (typeof metadata.fallbackUsed === 'boolean') {
+    badges.push({ label: '降级', value: metadata.fallbackUsed ? '已触发' : '未触发' })
+  }
+  if (typeof metadata.sourceCount === 'number') {
+    badges.push({ label: '知识源', value: `${metadata.sourceCount}` })
+  }
+  if (typeof metadata.latencyMs === 'number') {
+    badges.push({ label: '延迟', value: `${metadata.latencyMs}ms` })
+  }
+
+  return badges
 }
 
 // 实时Markdown渲染函数
@@ -314,6 +369,36 @@ const forceScrollToBottom = () => {
 
 const generateMessageId = () => {
   return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+}
+
+const mapHistoryMessage = (msg: ChatMessageDto): ChatMessage => ({
+  id: `msg_${msg.id}`,
+  content: msg.content,
+  role: msg.role === 'assistant' ? 'ai' : msg.role,
+  timestamp: msg.createdAt,
+  metadata: msg.metadata
+})
+
+const hydrateLatestAssistantMetadata = async (aiMessageIndex: number) => {
+  if (!sessionId.value) return
+
+  try {
+    await chatHistoryStore.fetchMessages(sessionId.value)
+    const latestAssistantMessage = [...chatHistoryStore.messages]
+      .reverse()
+      .find((msg: ChatMessageDto) => msg.role === 'assistant')
+
+    if (!latestAssistantMessage || !messages.value[aiMessageIndex]) {
+      return
+    }
+
+    messages.value[aiMessageIndex] = {
+      ...messages.value[aiMessageIndex],
+      metadata: latestAssistantMessage.metadata
+    }
+  } catch (error) {
+    console.warn('Failed to hydrate assistant metadata:', error)
+  }
 }
 
 // 发送消息 - 支持流式Markdown实时渲染
@@ -513,6 +598,7 @@ const sendMessage = async () => {
         // 最终渲染和滚动
         reapplyCodeHighlight()
         forceScrollToBottom()
+        void hydrateLatestAssistantMetadata(aiMessageIndex)
       }
     )
   } catch (error) {
@@ -585,12 +671,7 @@ const handleSelectSession = async (selectedSessionId: string) => {
     await chatHistoryStore.fetchMessages(selectedSessionId)
     
     // 转换消息格式
-    messages.value = chatHistoryStore.messages.map((msg: ChatMessageDto) => ({
-      id: `msg_${msg.id}`,
-      content: msg.content,
-      role: msg.role === 'assistant' ? 'ai' : msg.role,
-      timestamp: msg.createdAt
-    }))
+    messages.value = chatHistoryStore.messages.map((msg: ChatMessageDto) => mapHistoryMessage(msg))
     
     // 设置当前会话ID
     sessionId.value = selectedSessionId
@@ -605,56 +686,6 @@ const handleSelectSession = async (selectedSessionId: string) => {
   } catch (error) {
     console.error('加载会话失败:', error)
     ElMessage.error('加载会话失败')
-  }
-}
-
-// 开始新会话
-const startNewSession = () => {
-  sessionId.value = null
-  isNewSession.value = true
-  messages.value = []
-  chatHistoryStore.setActiveSessionId(null)
-  
-  // 重置滚动状态
-  showScrollToBottom.value = false
-  isUserScrolling.value = false
-  
-  // 添加欢迎消息
-  const welcomeMessage: ChatMessage = {
-    id: generateMessageId(),
-    content: `👋 您好！我是您的AI法律助手。
-请直接输入您的法律问题。`,
-    role: 'ai',
-    timestamp: new Date().toISOString()
-  }
-  
-  messages.value.push(welcomeMessage)
-  scrollToBottom()
-  ElMessage.success('已开始新会话')
-}
-
-// 清空对话
-const clearChat = async () => {
-  try {
-    await ElMessageBox.confirm('确定要清空所有对话记录吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-    
-    // 调用后端API重置会话
-    try {
-      await resetChatSessionApi(sessionId.value)
-    } catch (error) {
-      console.error('Failed to reset chat session:', error)
-      // 即使API调用失败，也继续清空本地消息
-    }
-    
-    messages.value = []
-    sessionId.value = `session_${Date.now()}`
-    ElMessage.success('对话已清空')
-  } catch {
-    // 用户取消操作
   }
 }
 
@@ -921,6 +952,25 @@ onUnmounted(() => {
 
 .ai-message .message-time {
   text-align: left;
+}
+
+.message-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.meta-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.12);
 }
 
 /* Markdown样式 - 优化流式渲染显示 */

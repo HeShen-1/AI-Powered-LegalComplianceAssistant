@@ -1,253 +1,258 @@
-[简体中文](./README.md) | [English](./README_EN.md)
+﻿[简体中文](./README.md) | [English](./README_EN.md)
 
-# 法律合规智能审查助手
+# 法律合规 AI 助手
 
-基于 Spring AI + RAG + Agent 的法律合规智能审查系统。
-> 此项目将不再维护.
+一个面向春招 AI 应用开发岗位展示的法律合规项目：用 `Spring AI + LangChain4j + RAG + Agent + SSE` 做统一问答、合同审查、报告生成与知识库管理，并补齐了**路由、降级、可观测性、验证与演示材料**。
 
-## 项目概述
+## 项目定位
 
-本项目是一个集自动化审查、智能化问答、专业化报告生成于一体的 AI 法律服务平台，旨在帮助中小企业和律师事务所提高合同审查效率，降低法律风险。平台通过先进的 AI 技术，实现了对法律文本的深度理解和分析，为用户提供精准、高效的法律合规支持。
+这不是一个“接了大模型 API 的课程作业”，而是一个强调 **AI 工程化落地** 的项目：
 
-## 技术栈
+- **统一聊天入口**：同一套接口支持 `BASIC / ADVANCED / ADVANCED_RAG / UNIFIED`
+- **多模型路由**：根据问题复杂度在 Agent 与高级 RAG 之间切换
+- **检索增强**：法律知识库支持切分、向量化、检索与重建
+- **流式交互**：合同审查采用异步流式进度推送
+- **降级回退**：DeepSeek 不可用时，`ADVANCED` 不再直接失败，而是回退到可用路径
+- **可解释响应**：聊天结果稳定返回模型、路由、降级、来源数、延迟等 metadata
 
-- **后端框架**: Java 21 + Spring Boot 3
-- **AI 核心**: Spring AI + LangChain4j
-- **智能体**: ReAct Agent
-- **知识库**: RAG (Retrieval-Augmented Generation)
-- **向量数据库**: PGVector
-- **模型部署**: Ollama + OpenAI平台
-- **异步通信**: SSE (Server-Sent Events)
-- **工具调用**: Tool Calling
-- **PDF 处理**: iText
-- **网页抓取**: Jsoup
-- **序列化**: Kryo
-- **API 文档**: Knife4j
-- **部署方案**: Serverless
+## 这轮冲刺做了什么
 
-## 核心功能
+### P0：先消灭面试红旗
 
-### 1. 统一聊天服务
-- **统一API入口**: 提供 `/chat` 和 `/chat/stream` 统一接口，根据参数智能路由到最合适的后端AI服务。
-- **多种聊天模式**:
-    - **基础模式**: 本地Ollama模型 + RAG，适用通用法律问答。
-    - **高级模式**: DeepSeek Agent模型，具备工具调用和复杂推理能力，处理深度法律分析。
-    - **高级RAG模式**: LangChain4j高级RAG框架，提供查询转换、多源检索和重排序能力。
-    - **统一智能模式**: 根据问题复杂度自动选择`高级模式`或`高级RAG模式`。
-- **聊天历史管理**: 自动保存用户与AI的完整对话历史，支持按会话查阅和管理。
+- 移除了 README 首页“停止维护”这类负面叙事
+- 修复了后端回归问题，`./mvnw test` 可通过
+- 统一了 `ADVANCED` 模式语义：优先 DeepSeek，高级能力不可用时回退可用模型
+- 新增合同分析主展示接口：`Authorization` Header 认证版异步流
+- 将明文密码示例工具移出主业务源码，避免默认包 + 硬编码口令成为减分项
 
-### 2. 智能合同审查
-- **多格式支持**: 支持 `.docx`, `.pdf`, `.txt` 格式的合同文件上传。
-- **异步处理**: 采用SSE（Server-Sent Events）技术，实时推送审查进度，优化用户体验。
-- **风险识别与标注**: AI自动识别合同中的潜在风险条款，并按照高、中、低三个等级进行分类。
-- **修改建议**: 针对风险条款，提供专业的修改建议和法律依据。
-- **审查历史**: 用户可以查看自己的历史审查记录和详细结果。
+### P1：把 AI 工程化做成显性卖点
 
-### 3. 专业的合规报告生成
-- **一键生成**: 对审查完成的合同，可一键生成专业的PDF格式审查报告。
-- **内容全面**: 报告包含风险统计图表、风险条款详情、修改建议和整体合规评分。
-- **格式规范**: 采用规范化的报告格式，便于归档和分享。
+- 补齐了统一聊天 metadata 稳定字段：
+  - `actualModel`
+  - `routeReason`
+  - `fallbackUsed`
+  - `sourceCount`
+  - `latencyMs`
+- 前端聊天页直接展示模型、路由、知识库使用、降级与延迟
+- 准备了可复用评测数据集：`24` 条问答样例、`6` 份知识库样例、`3` 份合同样例
+- 增加了架构说明、演示脚本、简历描述、面试高频问答材料
 
-### 4. 知识库管理 (管理员功能)
-- **文档管理**: 管理员可以上传、删除、管理用于RAG的法律文档，支持批量操作。
-- **自动处理**: 上传的文档会自动进行内容解析、文本分割和向量化，并存入向量数据库。
-- **索引运维**: 提供向量数据库重建、清理和统计功能，确保知识库高效运行。
-- **统计与维护**: 提供知识库文档统计和索引重建功能。
+### P2：把项目做成能演示的作品
 
-### 5. 安全与用户管理
-- **身份认证**: 基于 Spring Security 和 JWT 实现用户注册和登录认证。
-- **权限控制**: 支持`用户`和`管理员`两种角色，保障操作安全。
-- **用户管理**: 管理员可以对用户信息进行全面的增删改查和状态管理。
+- 增加 `demo` 运行模式，优先走 DeepSeek API，适合低成本云端演示
+- 保留本地复现模式：`Ollama + PostgreSQL/PGVector`
+- 合同审查页切换为认证头流式链路，更适合正式演示
+
+## 为什么同时使用 Spring AI 和 LangChain4j
+
+- **Spring AI**：负责项目里更贴近 Spring 生态的一层，包括模型接入、基础 ChatClient、工程集成
+- **LangChain4j**：负责高级 RAG 相关能力，例如更强的检索编排、查询转换、多阶段召回
+- **取舍结果**：不是为了“堆框架”，而是把“基础接入”和“高级检索链路”拆清楚，便于讲出工程设计理由
+
+## 模式设计
+
+| 模式 | 典型用途 | 核心能力 | 面试时怎么讲 |
+| --- | --- | --- | --- |
+| `BASIC` | 基础法律问答 | 本地模型 + 基础检索 | 低成本、本地可复现 |
+| `ADVANCED` | 复杂分析、工具调用 | DeepSeek Agent + fallback | 高级推理能力与可用性保障 |
+| `ADVANCED_RAG` | 需要更稳定引用知识库的问答 | 高级 RAG 检索链 | 用检索稳定性换取回答可控性 |
+| `UNIFIED` | 默认主路径 | 按复杂度自动路由 | 把“多能力系统”收敛成一个统一接口 |
+
+## 架构总览
+
+```mermaid
+flowchart LR
+    U["用户 / 前端"] --> G["Spring Boot API"]
+    G --> A["统一聊天路由"]
+    A --> B["BASIC<br/>Ollama + 基础RAG"]
+    A --> C["ADVANCED<br/>DeepSeek Agent"]
+    A --> D["ADVANCED_RAG<br/>LangChain4j"]
+    C --> F["Fallback 到可用模型"]
+    B --> V["PGVector / 知识库"]
+    D --> V
+    G --> R["合同审查服务"]
+    R --> S["SSE/流式进度"]
+    R --> P["PDF 报告生成"]
+    G --> K["知识库管理"]
+    K --> E["解析 / 切分 / 向量化"]
+    E --> V
+```
+
+更详细的系统图与请求流转图见：
+
+- [系统架构说明](./docs/architecture/system-overview.md)
+- [演示脚本](./docs/interview/demo-script.md)
+
+## 主演示链路
+
+推荐固定按下面顺序演示，全程 2–3 分钟：
+
+1. **登录**
+   - 使用演示账号登录
+2. **智能问答**
+   - 在聊天页选择 `UNIFIED`
+   - 提问一个简单问题，再提问一个复杂分析问题
+   - 展示 metadata：模型、路由原因、是否 fallback、来源数量、延迟
+3. **合同审查**
+   - 上传一份合同样例
+   - 展示异步进度与结构化结果
+4. **报告下载**
+   - 下载 PDF 报告，强调“分析链路闭环”
+5. **知识库后台**
+   - 演示上传、重建、删除、统计
+
+完整讲稿见 `./docs/interview/demo-script.md`。
+
+## 两种运行方式
+
+### 1. 云端演示模式
+
+适合部署到云主机或远程环境，优先展示稳定性和讲解效果：
+
+- 使用 `DeepSeek API` 作为默认聊天主路径
+- 不要求在线 Ollama 聊天模型参与主演示链路
+- 适合展示：
+  - 登录问答
+  - 合同审查
+  - 报告下载
+- 推荐命令：
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\start-demo.ps1
+```
+
+必备环境变量：
+
+- `DEEPSEEK_API_KEY`
+- `DATABASE_URL`
+- `DATABASE_USERNAME`
+- `DATABASE_PASSWORD`
+- `JWT_SECRET`
+
+### 2. 本地复现模式
+
+适合面试前本地准备、功能复现和 RAG 能力展示：
+
+- 本地 `Ollama`
+- PostgreSQL + `PGVector`
+- 完整知识库入库 / 重建 / 检索链路
+
+启动后端：
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\start-app.ps1
+```
+
+启动前端：
+
+```bash
+cd .\legal-assistant-frontend
+npm install
+npm run dev
+```
 
 ## 快速开始
 
 ### 环境要求
 
-- Java 21+
-- PostgreSQL 12+（需要启用 PGVector 扩展）
-- Ollama（本地 AI 模型服务）
-- Maven 3.8+
+- `Java 21+`
+- `Node.js 18+`
+- `PostgreSQL 12+`（启用 `PGVector`）
+- 本地复现建议安装 `Ollama`
 
-### 安装步骤
+### 环境变量
 
-1. **克隆项目**
-   ```bash
-   git clone <repository-url>
-   cd LegalAssistant
-   ```
+复制 `.env.example` 为 `.env`：
 
-2. **安装 PostgreSQL 和 PGVector**
-   ```sql
-   -- 在 PostgreSQL 中执行
-   CREATE DATABASE legal_assistant;
-   CREATE EXTENSION IF NOT EXISTS vector;
-   ```
-
-3. **安装和配置 Ollama**
-   ```bash
-   # 安装 Ollama
-   curl -fsSL https://ollama.ai/install.sh | sh
-   
-   # 下载所需模型
-   ollama pull qwen2:7b
-   ollama pull nomic-embed-text
-   ```
-   **注意**: 高级法律顾问功能依赖 [DeepSeek](https://platform.deepseek.com/) API，请通过环境变量 `DEEPSEEK_API_KEY` 配置密钥（不要直接写入 `application.yml`）。
-
-4. **配置数据库连接**
-   
-   编辑 `src/main/resources/application.yml`，更新数据库连接信息：
-   ```yaml
-   spring:
-     datasource:
-       url: jdbc:postgresql://localhost:5432/legal_assistant
-       username: your_username
-       password: your_password
-   ```
-
-5. **启动应用**
-   ```bash
-   mvn spring-boot:run
-   ```
-
-6. **验证安装**
-   
-   访问以下端点验证系统状态：
-   - 基础健康检查: http://localhost:8080/api/health
-   - 详细健康检查: http://localhost:8080/api/health/detailed
-   - AI 服务测试: http://localhost:8080/api/health/ai/test
-   - API 文档: http://localhost:8080/api/doc.html
-
-## 项目结构
-
-```
-src/
-├── main/
-│   ├── java/com/river/legalassistant/
-│   │   ├── config/          # 配置类
-│   │   ├── controller/      # 控制器
-│   │   ├── entity/          # 实体类
-│   │   ├── repository/      # 数据访问层
-│   │   ├── service/         # 服务层
-│   │   └── LegalAssistantApplication.java
-│   └── resources/
-│       ├── application.yml  # 应用配置
-│       └── db/migration/    # 数据库迁移脚本
-└── test/                    # 测试代码
+```bash
+copy .env.example .env
 ```
 
-## API 概览
+### 健康检查与文档
 
-系统提供以下核心API端点：
+- 健康检查：`http://localhost:8080/api/v1/health`
+- 详细健康检查：`http://localhost:8080/api/v1/health/detailed`
+- API 文档：`http://localhost:8080/api/v1/doc.html`
 
-- `POST /chat`: 统一聊天入口，支持多种模式。
-- `POST /chat/stream`: 统一流式聊天入口。
-- `GET /chat/sessions`: 获取当前用户的聊天会话列表。
-- `GET /chat/sessions/{sessionId}`: 获取指定会话的详细消息。
-- `DELETE /chat/sessions/{sessionId}`: 删除指定聊天会话。
-- `POST /contracts/upload`: 上传合同文件并创建审查任务。
-- `GET /contracts/{reviewId}/analyze-async`: 异步执行合同审查，通过SSE返回进度。
-- `GET /contracts/{reviewId}/report`: 生成并下载PDF审查报告。
-- `POST /knowledge-base/documents/upload-single`: (管理员) 上传单个文档到知识库。
-- `POST /admin/vector-db/rebuild-sync`: (管理员) 同步重建向量数据库。
+### 演示账号
 
-完整的API列表和使用方法请查阅API文档。
+本地初始化数据库后可直接使用：
 
-## API 文档
+- 用户名：`demo`
+- 密码：`123456`
 
-启动应用后，访问 http://localhost:8080/api/doc.html 查看由Knife4j生成的完整 API 文档。
+> 该账号仅用于演示链路，不建议作为生产配置保留。
 
-## 健康检查
+## 评测与证据
 
-系统提供多个健康检查端点，用于监控服务状态：
+### 已完成的工程验证
 
-- `GET /health` - 基础健康检查，确认应用是否运行。
-- `GET /health/detailed` - 详细健康检查，包含数据库和AI服务状态。
-- `GET /health/ai/test` - AI服务功能测试，验证聊天和向量化功能是否正常。
-- `GET /health/info` - 系统信息，显示应用版本、Java环境等信息。
+| 项目 | 结果 | 说明 |
+| --- | --- | --- |
+| 后端测试 | `81/81` 通过 | 覆盖 fallback、路由、metadata、合同流接口 |
+| 前端构建 | 通过 | `npm run build` 成功 |
+| 降级语义 | 已验证 | `ADVANCED` 在 DeepSeek 不可用时回退，不再直接报不可用 |
+| Metadata 稳定性 | 已验证 | 返回统一字段集合，前端可直接展示 |
+| 合同异步流主链路 | 已验证 | 新增 `Authorization` Header 版接口 |
 
-## 配置说明
+### 已交付的评测资产
 
-### 数据库配置
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/legal_assistant
-    username: postgres
-    password: postgres
-```
+- 数据集说明：`./docs/evaluation/README.md`
+- 问答样例：`./docs/evaluation/dataset/legal_qa_cases.json`
+- 合同审查样例：`./docs/evaluation/dataset/contract_review_cases.json`
+- 知识库样例：`./docs/evaluation/dataset/knowledge-base/`
+- 合同样例：`./docs/evaluation/dataset/contracts/`
+- 结果模板：`./docs/evaluation/result-template.csv`
+- 汇总脚本：`./docs/evaluation/aggregate-results.ps1`
 
-### AI 模型配置
-```yaml
-spring:
-  ai:
-    ollama:
-      base-url: http://localhost:11434
-      chat:
-        options:
-          model: qwen2:7b
-      embedding:
-        options:
-          model: nomic-embed-text
-```
+### 在线 AI Benchmark（2026-03-08，本地 mixed runtime 基线）
 
-## 故障排除
+| 指标 | 当前值 | 说明 |
+| --- | --- | --- |
+| 数据集规模 | `27` 条 | `24` 条法律问答 + `3` 份合同审查 |
+| 检索命中率 | `0.0%` | 依据 `retrieval_hit` 汇总 |
+| 回答完整性均分 | `0.68 / 5` | 依据 `answer_completeness` 汇总 |
+| 结构化抽取成功率 | `0.0%` | 依据 `structured_success` 汇总 |
+| 全量 P95 延迟 | `295,345 ms` | 27 条混合链路整体统计 |
+| QA P95 延迟 | `57,219 ms` | 24 条问答链路 |
+| 合同审查 P95 延迟 | `310,328 ms` | 3 条异步审查链路 |
+| 降级触发率 | `0.0%` | 依据 `fallback_used` 汇总 |
 
-### 常见问题
+- 基线环境：临时干净库 `legal_assistant_benchmark_20260308152141`
+- 知识库导入：`6` 份 Markdown 法律文档，经现有后台上传接口、解析、切分、向量化链路导入
+- 运行模型：`deepseek-chat`（`13` 次） + `LangChain4j` 本地检索链路（`11` 次），本地模型为 `qwen3:4b` / `nomic-embed-text`
+- 路由分布：`simple_query=5`、`complex_analysis=7`、`advanced_rag_direct=6`、`default=6`
+- 结果文件：`./docs/evaluation/benchmark-results.csv`、`./docs/evaluation/benchmark-summary.json`
 
-1. **数据库连接失败**
-   - 确认 PostgreSQL 服务正在运行。
-   - 检查 `application.yml` 中的数据库连接配置是否正确。
-   - 确认 PGVector 扩展已在目标数据库中成功创建。
+> 这组数值是**真实跑数后的当前基线**，反映的是“现有实现 + 当前模型配置”而不是理想值。对春招展示来说，它的意义是证明项目具备可复跑、可量化、可继续调优的工程闭环。
 
-2. **Ollama 连接失败**
-   - 确认 Ollama 服务正在本地运行。
-   - 检查 `ollama pull` 命令是否已成功下载所需模型。
-   - 验证 `application.yml` 中的 `base-url` 配置是否正确。
+## 面试时可以重点讲的 4 件事
 
-3. **应用启动失败**
-   - 检查 Java 版本是否为 21 或更高版本。
-   - 运行 `mvn clean install` 确认所有依赖已正确安装。
-   - 查看启动日志获取详细错误信息。
+1. **统一接口不是简单封装**
+   - 真正解决的是“多模型能力暴露给前端时的复杂度失控”
+2. **RAG 与 Agent 是协同而不是堆叠**
+   - 检索负责 grounding，Agent 负责复杂分析与工具调用
+3. **降级策略是工程可信度关键**
+   - 高级模型不可用时，系统仍能继续返回结果
+4. **可观测性让 AI 输出可解释**
+   - 元数据直接暴露模型、路由原因、延迟和 fallback，方便演示与排障
 
-## 贡献指南
+## 文档导航
 
-1. Fork 项目
-2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 创建 Pull Request
+- [系统架构说明](./docs/architecture/system-overview.md)
+- [评测说明与资产](./docs/evaluation/README.md)
+- [评测结果模板](./docs/evaluation/eval-report.md)
+- [项目一句话、亮点、取舍、追问回答](./docs/interview/project-brief.md)
+- [简历项目描述](./docs/interview/resume-bullets.md)
+- [2–3 分钟演示脚本](./docs/interview/demo-script.md)
+
+## 已知边界
+
+- 云端演示模式优先保证“可讲、可演示、可回退”，而不是完整复刻本地所有 RAG 运维操作
+- 知识库重建与全量向量化更适合在本地复现模式演示
+- 若未配置 DeepSeek 且本地未准备聊天模型，建议不要把 `ADVANCED` 作为首个演示镜头
 
 ## 许可证
 
-本项目采用 Apache 许可证。详情请参阅 [LICENSE](LICENSE) 文件。
+本项目采用仓库内 `LICENSE`。
 
-## 联系方式
-
-- 问题反馈: Issues
-- 邮箱: river-911@qq.com
-
-## 更新日志
-
-### v1.2.0 (本次更新)
-- ✅ **统一聊天服务**: 新增 `/chat` 和 `/chat/stream` 统一API入口，实现智能路由和多模型支持。
-- ✅ **聊天历史管理**: 实现完整的聊天历史记录功能，支持按会话管理消息。
-- ✅ **高级RAG集成**: 集成LangChain4j Advanced RAG框架，提升问答质量。
-- ✅ **DeepSeek Agent**: 集成DeepSeek模型和ReAct Agent，增强复杂问题处理能力。
-- ✅ **向量数据库管理**: 增加向量数据库重建、清理和统计等高级运维功能。
-- ✅ **代码结构优化**: 将AI相关、用户认证、知识库等模块的Controller进行拆分和重构，提升可维护性。
-
-### v1.1.0
-- ✅ **智能合同审查**: 实现多格式文件上传、异步分析与进度推送、风险条款识别与分级。
-- ✅ **RAG法律问答**: 完成基于知识库的检索增强生成问答功能。
-- ✅ **智能法律顾问**: 集成ReAct Agent，具备工具调用能力，支持复杂法律咨询。
-- ✅ **合规报告生成**: 实现一键生成PDF格式的专业审查报告。
-- ✅ **知识库管理**: 为管理员提供完整的后台文档管理功能。
-- ✅ **用户体系**: 集成Spring Security，支持用户注册、登录和角色权限管理。
-- ✅ **API文档与健康检查**: 集成Knife4j和Actuator，提供完善的API文档和监控端点。
-
-### v1.0.0
-- ✅ 完成基础环境搭建
-- ✅ 集成 Spring AI + Ollama
-- ✅ 配置 PostgreSQL + PGVector
-- ✅ 添加基础项目结构

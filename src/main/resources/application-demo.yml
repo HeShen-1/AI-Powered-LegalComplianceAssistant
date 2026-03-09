@@ -1,0 +1,29 @@
+﻿spring:
+  config:
+    activate:
+      on-profile: demo
+  ai:
+    model:
+      chat: deepseek
+    deepseek:
+      chat:
+        enabled: true
+        options:
+          model: ${DEMO_CHAT_MODEL:deepseek-chat}
+          temperature: 0.2
+
+app:
+  demo:
+    enabled: true
+    label: cloud-demo
+
+logging:
+  level:
+    com.river.LegalAssistant: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+

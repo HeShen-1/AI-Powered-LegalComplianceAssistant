@@ -329,7 +329,7 @@
           <el-descriptions-item label="文档ID">
             {{ selectedDocument.id }}
           </el-descriptions-item>
-          <el-descriptions-item label="描述" span="2">
+          <el-descriptions-item label="描述" :span="2">
             {{ selectedDocument.description || '无描述' }}
           </el-descriptions-item>
         </el-descriptions>
@@ -385,7 +385,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type UploadInstance } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules, type TagProps, type UploadInstance } from 'element-plus'
 import {
   Upload,
   Refresh,
@@ -394,7 +394,6 @@ import {
   Menu,
   Folder,
   Clock,
-  Delete,
   UploadFilled
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/modules/user'
@@ -500,12 +499,17 @@ const filteredDocuments = computed(() => {
     list.sort((a, b) => {
       const aVal = a[sortField.value as keyof KnowledgeDocument]
       const bVal = b[sortField.value as keyof KnowledgeDocument]
-      
-      if (sortOrder.value === 'ascending') {
-        return aVal > bVal ? 1 : -1
-      } else {
-        return aVal < bVal ? 1 : -1
-      }
+
+      if (aVal == null && bVal == null) return 0
+      if (aVal == null) return 1
+      if (bVal == null) return -1
+
+      const comparison =
+        typeof aVal === 'number' && typeof bVal === 'number'
+          ? aVal - bVal
+          : String(aVal).localeCompare(String(bVal))
+
+      return sortOrder.value === 'ascending' ? comparison : -comparison
     })
   }
   
@@ -556,24 +560,24 @@ const getFileIconColor = (filename: string) => {
   return colorMap[ext || ''] || '#747d8c'
 }
 
-const getCategoryType = (category: string) => {
-  const typeMap: Record<string, string> = {
+const getCategoryType = (category?: string): TagProps['type'] => {
+  const typeMap = {
     law: 'danger',
     contract: 'primary',
     case: 'warning',
     other: 'info'
-  }
-  return typeMap[category] || 'info'
+  } as const
+  return typeMap[category as keyof typeof typeMap] || 'info'
 }
 
-const getCategoryText = (category: string) => {
+const getCategoryText = (category?: string) => {
   const textMap: Record<string, string> = {
     law: '法律法规',
     contract: '合同模板',
     case: '案例分析',
     other: '其他'
   }
-  return textMap[category] || category
+  return category ? (textMap[category] || category) : '未分类'
 }
 
 // 数据获取
@@ -763,50 +767,6 @@ const deleteDocument = async (doc: KnowledgeDocument) => {
       console.error('Failed to delete document:', error)
       const errorMessage = error.response?.data?.message || error.message || '删除文档失败'
       ElMessage.error(errorMessage)
-    }
-  }
-}
-
-const batchDelete = async () => {
-  if (selectedRows.value.length === 0) {
-    ElMessage.warning('请先选择要删除的文档')
-    return
-  }
-  
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除选中的 ${selectedRows.value.length} 个文档吗？此操作不可恢复。`,
-      '批量删除确认',
-      {
-        confirmButtonText: '确定删除',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
-    
-    // 调用真实API批量删除文档
-    const deletePromises = selectedRows.value.map(doc => deleteDocumentApi(doc.id))
-    const results = await Promise.allSettled(deletePromises)
-    
-    // 统计成功和失败的数量
-    const successCount = results.filter(r => r.status === 'fulfilled').length
-    const failedCount = results.filter(r => r.status === 'rejected').length
-    
-    // 清空选择
-    tableRef.value?.clearSelection()
-    
-    if (failedCount === 0) {
-      ElMessage.success(`成功删除 ${successCount} 个文档`)
-    } else {
-      ElMessage.warning(`删除完成：成功 ${successCount} 个，失败 ${failedCount} 个`)
-    }
-    
-    // 刷新列表
-    await fetchDocumentList()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      console.error('Failed to batch delete documents:', error)
-      ElMessage.error('批量删除失败')
     }
   }
 }

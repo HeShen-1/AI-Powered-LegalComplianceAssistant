@@ -306,7 +306,7 @@ let usageChart: echarts.ECharts | null = null
 let featureChart: echarts.ECharts | null = null
 
 // 定时器
-let statusTimer: NodeJS.Timeout | null = null
+let statusTimer: ReturnType<typeof setInterval> | null = null
 
 // 工具函数
 const getProgressColor = (percentage: number) => {

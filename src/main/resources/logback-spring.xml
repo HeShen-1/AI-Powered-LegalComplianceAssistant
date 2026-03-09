@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- 控制台输出配置 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <charset>UTF-8</charset>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+        <!-- 确保控制台输出使用UTF-8编码 -->
+        <withJansi>false</withJansi>
+    </appender>
+
+    <!-- 文件输出配置 -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/legal-assistant.log</file>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <charset>UTF-8</charset>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>logs/legal-assistant.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- 根日志级别 -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+    </root>
+
+    <!-- 应用日志级别 -->
+    <logger name="com.river.legalassistant" level="INFO" />
+    <logger name="org.springframework.ai" level="INFO" />
+    <logger name="org.springframework.security" level="INFO" />
+    
+    <!-- 数据库SQL日志控制 - 简化版本避免复杂的嵌套条件 -->
+    <springProfile name="!prod">
+        <!-- 开发环境：默认关闭SQL日志，可通过配置开启 -->
+        <logger name="org.hibernate.SQL" level="WARN" />
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="WARN" />
+    </springProfile>
+    
+    <!-- 生产环境：强制关闭SQL日志 -->
+    <springProfile name="prod">
+        <logger name="org.hibernate.SQL" level="WARN" />
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="WARN" />
+    </springProfile>
+    
+    <!-- SQL调试模式：当启用调试时的日志配置 -->
+    <springProfile name="sql-debug">
+        <logger name="org.hibernate.SQL" level="DEBUG" additivity="false">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="FILE" />
+        </logger>
+        <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE" additivity="false">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="FILE" />
+        </logger>
+    </springProfile>
+    
+    <!-- 降低框架日志级别 -->
+    <logger name="org.springframework" level="WARN" />
+    <logger name="org.hibernate" level="WARN" />
+    <logger name="org.apache" level="WARN" />
+    <logger name="org.flywaydb" level="INFO" />
+    
+    <!-- 向量数据库相关 -->
+    <logger name="org.springframework.ai.vectorstore" level="DEBUG" />
+    
+    <!-- LangChain4j 相关 -->
+    <logger name="dev.langchain4j" level="INFO" />
+    
+    <!-- 异步任务相关 -->
+    <logger name="org.springframework.scheduling" level="INFO" />
+    
+    <!-- 数据库连接池 -->
+    <logger name="com.zaxxer.hikari" level="INFO" />
+    
+    <!-- 缓存相关 -->
+    <logger name="org.springframework.cache" level="INFO" />
+    
+    <!-- 限流相关 -->
+    <logger name="io.github.resilience4j" level="INFO" />
+    
+    <!-- OpenTelemetry 日志过滤（隐藏冗长的追踪日志） -->
+    <logger name="io.opentelemetry.exporter.logging" level="OFF" additivity="false"/>
+    <logger name="io.opentelemetry.javaagent" level="WARN" additivity="false">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="FILE" />
+    </logger>
+</configuration>

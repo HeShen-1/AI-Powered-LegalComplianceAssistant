@@ -1,0 +1,26 @@
+# 法律文档分割器配置
+# 可以通过激活此profile来使用自定义的分割器配置
+
+app:
+  rag:
+    legal-splitter:
+      # 是否启用法律文档分割器
+      enabled: true
+      
+      # 最大Token限制
+      # 根据你的Embedding模型调整,常见值: 512, 1024
+      max-tokens: 1024
+      
+      # 是否启用层级结构解析(编、章、节、条)
+      # 启用后会解析法律文档的完整层级结构
+      enable-hierarchical: true
+      
+      # 二次分割时的重叠字符数
+      # 用于处理超长条文时保持上下文连续性
+      chunk-overlap: 100
+
+# 使用示例:
+# 1. 在命令行中: java -jar app.jar --spring.profiles.active=legal-splitter
+# 2. 在application.yml中: spring.profiles.active: legal-splitter
+# 3. 在IDE中: 设置VM options: -Dspring.profiles.active=legal-splitter
+

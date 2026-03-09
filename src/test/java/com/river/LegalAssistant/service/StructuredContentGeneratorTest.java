@@ -13,9 +13,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 /**
@@ -29,6 +33,12 @@ class StructuredContentGeneratorTest {
     
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private PromptTemplateService promptTemplateService;
+
+    @Mock
+    private com.river.LegalAssistant.util.ReportContentValidator contentValidator;
     
     @InjectMocks
     private StructuredContentGenerator structuredContentGenerator;
@@ -43,6 +53,10 @@ class StructuredContentGeneratorTest {
         contractReview.setContentText("这是一份测试合同的内容...");
         contractReview.setRiskLevel(ContractReview.RiskLevel.MEDIUM);
         contractReview.setTotalRisks(3);
+
+        when(promptTemplateService.render(eq("executive-summary"), anyMap())).thenReturn("prompt");
+        lenient().when(contentValidator.removeDuplicateContent(anyString()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
     }
     
     @Test
@@ -67,7 +81,7 @@ class StructuredContentGeneratorTest {
                 .build();
         
         when(agentService.directChatForReport(anyString())).thenReturn(jsonResponse);
-        when(objectMapper.readValue(anyString(), ExecutiveSummaryDto.class))
+        when(objectMapper.readValue(anyString(), eq(ExecutiveSummaryDto.class)))
                 .thenReturn(expectedDto);
         
         // 执行测试
@@ -106,7 +120,7 @@ class StructuredContentGeneratorTest {
                 .build();
         
         when(agentService.directChatForReport(anyString())).thenReturn(jsonResponse);
-        when(objectMapper.readValue(anyString(), ExecutiveSummaryDto.class))
+        when(objectMapper.readValue(anyString(), eq(ExecutiveSummaryDto.class)))
                 .thenReturn(expectedDto);
         
         // 执行测试
@@ -123,7 +137,7 @@ class StructuredContentGeneratorTest {
         String invalidJson = "这不是有效的JSON";
         
         when(agentService.directChatForReport(anyString())).thenReturn(invalidJson);
-        when(objectMapper.readValue(anyString(), ExecutiveSummaryDto.class))
+        when(objectMapper.readValue(anyString(), eq(ExecutiveSummaryDto.class)))
                 .thenThrow(new com.fasterxml.jackson.core.JsonProcessingException("Parse error") {});
         
         // 执行测试并验证异常

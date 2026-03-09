@@ -1,8 +1,21 @@
+﻿# ==================== 敏感文件 ====================
+# 环境变量文件（包含API密钥等敏感信息）
+.env
+.env.local
+.env.*.local
+*.env
+
+# 不忽略示例文件
+!.env.example
+
+# ==================== 项目文件 ====================
 HELP.md
 target/
 uploads/
 documents/
 src/main/resources/
+!src/main/resources/
+!src/main/resources/application-demo.yml
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
@@ -34,3 +47,5 @@ build/
 
 ### VS Code ###
 .vscode/
+
+

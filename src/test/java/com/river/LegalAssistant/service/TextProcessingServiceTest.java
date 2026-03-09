@@ -42,7 +42,7 @@ class TextProcessingServiceTest {
     void shouldSplitIntoChunks() {
         // Given
         StringBuilder longText = new StringBuilder();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 400; i++) {
             longText.append("这是第").append(i).append("段文本。");
         }
         

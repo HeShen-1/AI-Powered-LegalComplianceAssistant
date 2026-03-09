@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.ai.document.Document;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 
@@ -16,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 注意：这些测试需要向量数据库中有实际数据
  */
 @SpringBootTest
+@ActiveProfiles("test")
 class HybridSearchIntegrationTest {
     
     @Autowired

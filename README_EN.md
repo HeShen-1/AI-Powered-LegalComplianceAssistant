@@ -1,253 +1,232 @@
-[简体中文](./README.md) | [English](./README_EN.md)
+﻿[简体中文](./README.md) | [English](./README_EN.md)
 
-# AI-Powered Legal Compliance Assistant
+# Legal Compliance AI Assistant
 
-A legal compliance intelligent review system based on Spring AI + RAG + Agent.
-> This project will no longer be maintained.
+An interview-ready AI application project for legal compliance scenarios. It combines `Spring AI + LangChain4j + RAG + Agent + SSE` to deliver unified chat, contract review, report generation, and knowledge-base management, with clear **routing, fallback, observability, verification, and demo materials**.
 
-## Project Overview
+## Positioning
 
-This project is an AI-powered legal service platform that integrates automated review, intelligent Q&A, and professional report generation. It aims to help small to medium-sized enterprises and law firms improve contract review efficiency and reduce legal risks. By leveraging advanced AI technology, the platform achieves a deep understanding and analysis of legal texts, providing users with accurate and efficient legal compliance support.
+This is meant to look like an **AI engineering project**, not a toy app that only wraps one LLM API:
 
-## Technology Stack
+- Unified chat API across `BASIC / ADVANCED / ADVANCED_RAG / UNIFIED`
+- Complexity-based routing between Agent and advanced RAG
+- Knowledge-base ingestion, chunking, embedding, retrieval, and rebuild
+- Streaming contract review with async progress updates
+- Fallback behavior when DeepSeek is unavailable
+- Stable response metadata for model, route, fallback, sources, and latency
 
-- **Backend Framework**: Java 21 + Spring Boot 3
-- **AI Core**: Spring AI + LangChain4j
-- **Agent**: ReAct Agent
-- **Knowledge Base**: RAG (Retrieval-Augmented Generation)
-- **Vector Database**: PGVector
-- **Model Deployment**: Ollama + OpenAI Platform
-- **Asynchronous Communication**: SSE (Server-Sent Events)
-- **Tool Calling**: Tool Calling
-- **PDF Processing**: iText
-- **Web Scraping**: Jsoup
-- **Serialization**: Kryo
-- **API Documentation**: Knife4j
-- **Deployment Strategy**: Serverless
+## What changed in this sprint
 
-## Core Features
+### P0: remove interview red flags
 
-### 1. Unified Chat Service
-- **Unified API Endpoint**: Provides `/chat` and `/chat/stream` as unified endpoints that intelligently route requests to the most suitable backend AI service.
-- **Multiple Chat Modes**:
-    - **Basic Mode**: Local Ollama model + RAG for general legal Q&A.
-    - **Advanced Mode**: DeepSeek Agent model with tool-calling and complex reasoning capabilities for in-depth legal analysis.
-    - **Advanced RAG Mode**: LangChain4j advanced RAG framework, offering query transformation, multi-source retrieval, and re-ranking.
-    - **Unified Smart Mode**: Automatically selects between `Advanced Mode` and `Advanced RAG Mode` based on question complexity.
-- **Chat History Management**: Automatically saves the complete conversation history between the user and the AI, supporting session-based review and management.
+- Replaced negative “no longer maintained” messaging
+- Restored backend test credibility: `./mvnw test` passes
+- `ADVANCED` now prefers DeepSeek but falls back instead of hard-failing
+- Added an auth-header async contract analysis endpoint for the main demo flow
+- Moved the password helper out of the main production source path
 
-### 2. Intelligent Contract Review
-- **Multi-Format Support**: Supports uploading contract files in `.docx`, `.pdf`, and `.txt` formats.
-- **Asynchronous Processing**: Uses SSE (Server-Sent Events) to push review progress in real-time, optimizing the user experience.
-- **Risk Identification & Highlighting**: The AI automatically identifies potential risk clauses in contracts and categorizes them into high, medium, and low-risk levels.
-- **Modification Suggestions**: Provides professional suggestions and legal justifications for risky clauses.
-- **Review History**: Users can access their historical review records and detailed results.
+### P1: make AI engineering visible
 
-### 3. Professional Compliance Report Generation
-- **One-Click Generation**: Generates professional PDF review reports for completed contract reviews with a single click.
-- **Comprehensive Content**: Reports include risk statistics charts, detailed risk clauses, modification suggestions, and an overall compliance score.
-- **Standardized Format**: Uses a standardized report format for easy archiving and sharing.
+- Standardized chat metadata fields:
+  - `actualModel`
+  - `routeReason`
+  - `fallbackUsed`
+  - `sourceCount`
+  - `latencyMs`
+- Frontend now exposes those metadata badges directly in chat
+- Added reusable evaluation assets: `24` QA cases, `6` KB docs, `3` contracts
+- Added architecture docs, demo scripts, resume bullets, and interview Q&A
 
-### 4. Knowledge Base Management (Admin Function)
-- **Document Management**: Administrators can upload, delete, and manage legal documents used for RAG, with support for batch operations.
-- **Automated Processing**: Uploaded documents are automatically parsed, chunked, vectorized, and stored in the vector database.
-- **Index Maintenance**: Provides vector database rebuilding, cleaning, and statistics functions to ensure efficient knowledge base operation.
-- **Statistics & Maintenance**: Provides knowledge base statistics and index rebuilding functionalities.
+### P2: make it demo-friendly
 
-### 5. Security & User Management
-- **Authentication**: Implements user registration and login authentication based on Spring Security and JWT.
-- **Authorization**: Supports `USER` and `ADMIN` roles to ensure operational security.
-- **User Management**: Admins can perform comprehensive CRUD operations and manage the status of user information.
+- Added a `demo` runtime profile for low-cost cloud demos
+- Kept the local reproducible path with `Ollama + PostgreSQL/PGVector`
+- Switched the contract review demo path to auth-header streaming
 
-## Quick Start
+## Why both Spring AI and LangChain4j
 
-### Prerequisites
+- **Spring AI** fits the Spring Boot integration layer and model access layer
+- **LangChain4j** is used for the more advanced RAG orchestration path
+- The tradeoff is intentional: separate “platform integration” from “advanced retrieval workflow”
 
-- Java 21+
-- PostgreSQL 12+ (with PGVector extension enabled)
-- Ollama (for local AI model serving)
-- Maven 3.8+
+## Mode semantics
 
-### Installation Steps
+| Mode | Best for | Core value |
+| --- | --- | --- |
+| `BASIC` | low-cost local QA | local reproducibility |
+| `ADVANCED` | complex analysis and tools | stronger reasoning + fallback |
+| `ADVANCED_RAG` | retrieval-heavy legal QA | more controlled knowledge grounding |
+| `UNIFIED` | main default flow | a single smart entry with routing |
 
-1. **Clone the project**
-   ```bash
-   git clone <repository-url>
-   cd LegalAssistant
-   ```
+## Architecture
 
-2. **Install PostgreSQL and PGVector**
-   ```sql
-   -- Execute in PostgreSQL
-   CREATE DATABASE legal_assistant;
-   CREATE EXTENSION IF NOT EXISTS vector;
-   ```
-
-3. **Install and configure Ollama**
-   ```bash
-   # Install Ollama
-   curl -fsSL https://ollama.ai/install.sh | sh
-   
-   # Pull required models
-   ollama pull qwen2:7b
-   ollama pull nomic-embed-text
-   ```
-   **Note**: The advanced legal consultation feature relies on the [DeepSeek](https://platform.deepseek.com/) API. Set the `DEEPSEEK_API_KEY` via environment variables instead of hardcoding it in `application.yml`.
-
-4. **Configure database connection**
-   
-   Edit `src/main/resources/application.yml` and update the database connection info:
-   ```yaml
-   spring:
-     datasource:
-       url: jdbc:postgresql://localhost:5432/legal_assistant
-       username: your_username
-       password: your_password
-   ```
-
-5. **Run the application**
-   ```bash
-   mvn spring-boot:run
-   ```
-
-6. **Verify installation**
-   
-   Access the following endpoints to verify the system status:
-   - Basic Health Check: http://localhost:8080/api/health
-   - Detailed Health Check: http://localhost:8080/api/health/detailed
-   - AI Service Test: http://localhost:8080/api/health/ai/test
-   - API Documentation: http://localhost:8080/api/doc.html
-
-## Project Structure
-
-```
-src/
-├── main/
-│   ├── java/com/river/legalassistant/
-│   │   ├── config/          # Configuration classes
-│   │   ├── controller/      # Controllers
-│   │   ├── entity/          # Entity classes
-│   │   ├── repository/      # Data access layer
-│   │   ├── service/         # Service layer
-│   │   └── LegalAssistantApplication.java
-│   └── resources/
-│       ├── application.yml  # Application configuration
-│       └── db/migration/    # Database migration scripts
-└── test/                    # Test code
+```mermaid
+flowchart LR
+    U["User / Frontend"] --> G["Spring Boot API"]
+    G --> A["Unified chat router"]
+    A --> B["BASIC<br/>Ollama + basic RAG"]
+    A --> C["ADVANCED<br/>DeepSeek Agent"]
+    A --> D["ADVANCED_RAG<br/>LangChain4j"]
+    C --> F["Fallback path"]
+    B --> V["PGVector / knowledge base"]
+    D --> V
+    G --> R["Contract review service"]
+    R --> S["SSE progress stream"]
+    R --> P["PDF report generation"]
+    G --> K["Knowledge-base admin"]
+    K --> E["Parsing / chunking / embedding"]
+    E --> V
 ```
 
-## API Overview
+More details:
 
-The system provides the following core API endpoints:
+- [Architecture overview](./docs/architecture/system-overview.md)
+- [Demo script](./docs/interview/demo-script.md)
 
-- `POST /chat`: Unified chat endpoint supporting multiple modes.
-- `POST /chat/stream`: Unified streaming chat endpoint.
-- `GET /chat/sessions`: Get the current user's chat session list.
-- `GET /chat/sessions/{sessionId}`: Get detailed messages for a specific session.
-- `DELETE /chat/sessions/{sessionId}`: Delete a specific chat session.
-- `POST /contracts/upload`: Upload a contract file and create a review task.
-- `GET /contracts/{reviewId}/analyze-async`: Asynchronously perform contract review and get progress via SSE.
-- `GET /contracts/{reviewId}/report`: Generate and download the PDF review report.
-- `POST /knowledge-base/documents/upload-single`: (Admin) Upload a single document to the knowledge base.
-- `POST /admin/vector-db/rebuild-sync`: (Admin) Synchronously rebuild the vector database.
+## Recommended demo flow
 
-For a complete list of APIs and their usage, please refer to the API documentation.
+1. Login
+2. Ask a simple question in `UNIFIED`
+3. Ask a complex analysis question and show route / model / fallback / latency badges
+4. Upload a contract and show async progress
+5. Download the PDF report
+6. Open the knowledge-base admin page and show upload/rebuild/stats
 
-## API Documentation
+## Runtime modes
 
-After starting the application, visit http://localhost:8080/api/doc.html to view the complete API documentation generated by Knife4j.
+### 1. Cloud demo mode
 
-## Health Check
+Best for remote demo environments:
 
-The system provides multiple health check endpoints for monitoring service status:
+- prefers `DeepSeek API` as the main chat path
+- does not require Ollama chat models for the primary demo storyline
+- best for:
+  - login + chat
+  - contract review
+  - report download
 
-- `GET /health` - Basic health check to confirm if the application is running.
-- `GET /health/detailed` - Detailed health check, including the status of the database and AI services.
-- `GET /health/ai/test` - AI service functional test to verify chat and embedding functionalities.
-- `GET /health/info` - System information, displaying application version, Java environment, etc.
+Run:
 
-## Configuration
-
-### Database Configuration
-```yaml
-spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/legal_assistant
-    username: postgres
-    password: postgres
+```bash
+powershell -ExecutionPolicy Bypass -File .\start-demo.ps1
 ```
 
-### AI Model Configuration
-```yaml
-spring:
-  ai:
-    ollama:
-      base-url: http://localhost:11434
-      chat:
-        options:
-          model: qwen2:7b
-      embedding:
-        options:
-          model: nomic-embed-text
+Required env vars:
+
+- `DEEPSEEK_API_KEY`
+- `DATABASE_URL`
+- `DATABASE_USERNAME`
+- `DATABASE_PASSWORD`
+- `JWT_SECRET`
+
+### 2. Local reproducible mode
+
+Best for full local reproduction:
+
+- `Ollama`
+- PostgreSQL + `PGVector`
+- full knowledge-base ingest and rebuild workflow
+
+Backend:
+
+```bash
+powershell -ExecutionPolicy Bypass -File .\start-app.ps1
 ```
 
-## Troubleshooting
+Frontend:
 
-### Common Issues
+```bash
+cd .\legal-assistant-frontend
+npm install
+npm run dev
+```
 
-1. **Database Connection Fails**
-   - Confirm that the PostgreSQL service is running.
-   - Check if the database connection settings in `application.yml` are correct.
-   - Ensure the PGVector extension has been successfully created in the target database.
+## Quick start
 
-2. **Ollama Connection Fails**
-   - Confirm that the Ollama service is running locally.
-   - Check if the required models have been successfully downloaded using the `ollama pull` command.
-   - Verify that the `base-url` in `application.yml` is correct.
+### Requirements
 
-3. **Application Fails to Start**
-   - Check if your Java version is 21 or higher.
-   - Run `mvn clean install` to ensure all dependencies are correctly installed.
-   - Check the startup logs for detailed error messages.
+- `Java 21+`
+- `Node.js 18+`
+- `PostgreSQL 12+` with `PGVector`
+- `Ollama` for the local full-featured path
 
-## Contribution Guidelines
+### Environment file
 
-1. Fork the project
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Create a Pull Request
+Copy `.env.example` to `.env` and fill in values.
+
+### Health checks
+
+- `http://localhost:8080/api/v1/health`
+- `http://localhost:8080/api/v1/health/detailed`
+- `http://localhost:8080/api/v1/doc.html`
+
+### Demo account
+
+- Username: `demo`
+- Password: `123456`
+
+> Demo only. Do not keep this account unchanged in a real deployment.
+
+## Verification and evaluation assets
+
+### Verified engineering evidence
+
+| Item | Status | Notes |
+| --- | --- | --- |
+| Backend test suite | `81/81` passed | covers fallback, routing, metadata, contract stream |
+| Frontend build | passed | `npm run build` succeeds |
+| Fallback behavior | verified | `ADVANCED` no longer hard-fails without DeepSeek |
+| Metadata stability | verified | stable keys returned to frontend |
+| Contract async auth flow | verified | auth-header endpoint added for main demo |
+
+### Included evaluation assets
+
+- Dataset guide: `./docs/evaluation/README.md`
+- QA cases: `./docs/evaluation/dataset/legal_qa_cases.json`
+- Contract review cases: `./docs/evaluation/dataset/contract_review_cases.json`
+- KB samples: `./docs/evaluation/dataset/knowledge-base/`
+- Contract samples: `./docs/evaluation/dataset/contracts/`
+- Result template: `./docs/evaluation/result-template.csv`
+- Aggregation script: `./docs/evaluation/aggregate-results.ps1`
+
+### Live AI benchmark (2026-03-08 local mixed-runtime baseline)
+
+| Metric | Value | Notes |
+| --- | --- | --- |
+| Dataset size | `27` cases | `24` legal QA + `3` contract review |
+| Retrieval hit rate | `0.0%` | aggregated from `retrieval_hit` |
+| Answer completeness avg | `0.68 / 5` | aggregated from `answer_completeness` |
+| Structured extraction success | `0.0%` | aggregated from `structured_success` |
+| Overall P95 latency | `295,345 ms` | across all 27 cases |
+| QA P95 latency | `57,219 ms` | across the 24 QA cases |
+| Contract-review P95 latency | `310,328 ms` | across the 3 async review cases |
+| Fallback trigger rate | `0.0%` | aggregated from `fallback_used` |
+
+- Baseline database: clean temporary DB `legal_assistant_benchmark_20260308152141`
+- KB ingestion path: `6` Markdown legal docs imported through the existing admin upload API, parser, chunker, and vectorization pipeline
+- Runtime mix: `deepseek-chat` (`13` QA cases) + local LangChain4j retrieval path (`11` QA cases), with `qwen3:4b` and `nomic-embed-text`
+- Route distribution: `simple_query=5`, `complex_analysis=7`, `advanced_rag_direct=6`, `default=6`
+- Artifacts: `./docs/evaluation/benchmark-results.csv`, `./docs/evaluation/benchmark-summary.json`
+
+> These are real benchmark outputs from the current implementation and model configuration, not aspirational numbers. For interview use, the key value is that the project now supports repeatable measurement, artifact retention, and clear next-step tuning.
+
+## What to highlight in interviews
+
+1. The unified API solves multi-model integration complexity
+2. RAG and Agent are complementary, not redundant
+3. Fallback behavior improves service credibility
+4. Metadata makes AI outputs observable and explainable
+
+## Document index
+
+- [Architecture overview](./docs/architecture/system-overview.md)
+- [Evaluation assets and protocol](./docs/evaluation/README.md)
+- [Evaluation report template](./docs/evaluation/eval-report.md)
+- [Interview brief and Q&A](./docs/interview/project-brief.md)
+- [Resume bullets](./docs/interview/resume-bullets.md)
+- [Demo script](./docs/interview/demo-script.md)
 
 ## License
 
-This project is licensed under the Apache License. See the [LICENSE](LICENSE) file for details.
+See `LICENSE`.
 
-## Contact
-
-- Issue Tracker: Issues
-- Email: river-911@qq.com
-
-## Changelog
-
-### v1.2.0 (This Update)
-- ✅ **Unified Chat Service**: Added unified `/chat` and `/chat/stream` API endpoints with intelligent routing and multi-model support.
-- ✅ **Chat History Management**: Implemented full chat history functionality, supporting session-based message management.
-- ✅ **Advanced RAG Integration**: Integrated the LangChain4j Advanced RAG framework to improve Q&A quality.
-- ✅ **DeepSeek Agent**: Integrated the DeepSeek model and ReAct Agent to enhance complex problem-solving capabilities.
-- ✅ **Vector Database Management**: Added advanced maintenance features for the vector database, including rebuilding, cleaning, and statistics.
-- ✅ **Code Structure Optimization**: Refactored and separated controllers for AI, user authentication, and knowledge base modules to improve maintainability.
-
-### v1.1.0
-- ✅ **Intelligent Contract Review**: Implemented multi-format file upload, asynchronous analysis with progress push, and risk clause identification/classification.
-- ✅ **RAG Legal Q&A**: Completed RAG-based Q&A functionality with the knowledge base.
-- ✅ **AI Legal Agent**: Integrated ReAct Agent with tool-calling capabilities for complex legal consultations.
-- ✅ **Compliance Report Generation**: Implemented one-click generation of professional PDF review reports.
-- ✅ **Knowledge Base Management**: Provided a complete backend for document management for administrators.
-- ✅ **User System**: Integrated Spring Security for user registration, login, and role-based access control.
-- ✅ **API Docs & Health Check**: Integrated Knife4j and Actuator for comprehensive API documentation and monitoring endpoints.
-
-### v1.0.0
-- ✅ Set up the basic project environment.
-- ✅ Integrated Spring AI + Ollama.
-- ✅ Configured PostgreSQL + PGVector.
-- ✅ Added the basic project structure.

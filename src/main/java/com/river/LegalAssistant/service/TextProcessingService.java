@@ -153,7 +153,7 @@ public class TextProcessingService {
         String cleaned = filename.replaceAll(".*[/\\\\]", "");
         
         // 移除SHA哈希前缀(64字符的十六进制字符串后跟下划线)
-        cleaned = cleaned.replaceAll("^[a-fA-F0-9]{64}_", "");
+        cleaned = cleaned.replaceAll("^[a-fA-F0-9]{32,}_", "");
         
         // 移除uploads路径前缀
         cleaned = cleaned.replaceAll("^uploads/[^/]+/", "");

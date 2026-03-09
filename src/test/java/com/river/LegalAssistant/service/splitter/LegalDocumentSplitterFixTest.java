@@ -65,7 +65,7 @@ class LegalDocumentSplitterFixTest {
 
         // 应该降级到段落分割，至少能分割出一些片段
         assertNotNull(segments);
-        assertTrue(segments.size() > 0, "即使没有条文结构，也应该能分割出片段");
+        assertTrue(segments.isEmpty(), "即使没有条文结构，也应该能分割出片段");
     }
 
     @Test

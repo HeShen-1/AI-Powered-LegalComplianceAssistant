@@ -1,0 +1,57 @@
+﻿[
+  {
+    "id": "contract-01",
+    "file": "contracts/contract-saas-procurement.md",
+    "scenario": "SaaS 采购合同",
+    "expectedRisks": [
+      "自动续费未提醒",
+      "供应商免责过宽",
+      "验收标准不明确",
+      "数据安全责任模糊"
+    ],
+    "expectedStructuredFields": [
+      "riskLevel",
+      "clauseTitle",
+      "riskDescription",
+      "suggestion",
+      "legalBasis"
+    ]
+  },
+  {
+    "id": "contract-02",
+    "file": "contracts/contract-data-processing.md",
+    "scenario": "数据处理合作协议",
+    "expectedRisks": [
+      "跨境传输责任不清",
+      "安全事件通知期限缺失",
+      "单方修改条款",
+      "分包限制不足"
+    ],
+    "expectedStructuredFields": [
+      "riskLevel",
+      "clauseTitle",
+      "riskDescription",
+      "suggestion",
+      "legalBasis"
+    ]
+  },
+  {
+    "id": "contract-03",
+    "file": "contracts/contract-labor-outsourcing.md",
+    "scenario": "劳务外包协议",
+    "expectedRisks": [
+      "用工边界不清",
+      "加班责任模糊",
+      "保密与数据使用范围过宽",
+      "违约责任失衡"
+    ],
+    "expectedStructuredFields": [
+      "riskLevel",
+      "clauseTitle",
+      "riskDescription",
+      "suggestion",
+      "legalBasis"
+    ]
+  }
+]
+

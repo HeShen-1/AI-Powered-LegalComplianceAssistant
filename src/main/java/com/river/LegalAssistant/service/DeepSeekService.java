@@ -11,7 +11,7 @@ import org.springframework.ai.deepseek.DeepSeekAssistantMessage;
 import org.springframework.ai.deepseek.api.DeepSeekApi;
 import org.springframework.ai.deepseek.DeepSeekChatOptions;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,11 +30,13 @@ import java.util.Objects;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "spring.ai.deepseek.api-key")
 public class DeepSeekService {
 
     @Qualifier("advancedChatClient")
     private final ChatClient deepSeekChatClient;
+
+    @Value("${spring.ai.deepseek.chat.enabled:false}")
+    private boolean deepSeekEnabled;
 
     /**
      * 使用DeepSeek推理模型进行复杂推理
@@ -43,6 +45,8 @@ public class DeepSeekService {
      * @return 包含推理过程和最终答案的结果
      */
     public ReasoningResult reasoningChat(String question) {
+        ensureDeepSeekEnabled();
+
         try {
             // 构建推理模型的配置选项
             DeepSeekChatOptions options = DeepSeekChatOptions.builder()
@@ -78,6 +82,8 @@ public class DeepSeekService {
      * 正确处理推理内容，避免将reasoning_content传递给下一轮对话
      */
     public String multiRoundReasoning(List<String> conversationHistory) {
+        ensureDeepSeekEnabled();
+
         try {
             List<Message> messages = conversationHistory.stream()
                     .map(UserMessage::new)
@@ -108,12 +114,22 @@ public class DeepSeekService {
      * 检查DeepSeek服务是否可用
      */
     public boolean isAvailable() {
+        if (!deepSeekEnabled) {
+            return false;
+        }
+
         try {
             ChatResponse response = deepSeekChatClient.prompt("Hello").call().chatResponse();
             return response != null && response.getResult() != null;
         } catch (Exception e) {
             log.warn("DeepSeek服务不可用: {}", e.getMessage());
             return false;
+        }
+    }
+
+    private void ensureDeepSeekEnabled() {
+        if (!deepSeekEnabled) {
+            throw new IllegalStateException("DeepSeek service is disabled because no API key is configured");
         }
     }
 

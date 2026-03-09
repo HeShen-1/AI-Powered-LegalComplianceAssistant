@@ -398,50 +398,11 @@ public class ReportContentValidator {
         if (content == null || content.trim().isEmpty()) {
             return content;
         }
-        
-        // 检测连续重复的文本片段
-        String result = content;
-        
-        // 查找重复的文本模式（至少重复3次）
-        String[] words = content.split("\\s+");
-        if (words.length > 10) {
-            // 检查是否有重复的词语序列
-            for (int i = 0; i < words.length - 5; i++) {
-                String segment = words[i];
-                int repeatCount = 1;
-                
-                // 计算这个词语重复的次数
-                for (int j = i + 1; j < words.length; j++) {
-                    if (words[j].equals(segment)) {
-                        repeatCount++;
-                    } else {
-                        break;
-                    }
-                }
-                
-                // 如果重复次数超过3次，移除多余的重复
-                if (repeatCount > 3) {
-                    String repeatedText = segment;
-                    for (int k = 1; k < repeatCount; k++) {
-                        repeatedText += segment;
-                    }
-                    
-                    // 只保留一次
-                    String replacement = segment;
-                    result = result.replace(repeatedText, replacement);
-                    log.debug("移除重复文本: {} (重复{}次)", segment, repeatCount);
-                }
-            }
-        }
-        
-        return result;
+
+        String collapsed = collapseRepeatedSegments(content, 4, 60);
+        return removeDuplicateContent(collapsed);
     }
-    
-    // ==================== DTO验证方法 ====================
-    
-    /**
-     * 验证执行摘要DTO
-     */
+
     public boolean validateExecutiveSummary(ExecutiveSummaryDto dto) {
         if (dto == null) {
             log.warn("【DTO验证】执行摘要DTO为null");
@@ -553,6 +514,73 @@ public class ReportContentValidator {
     /**
      * 验证结果
      */
+    private String collapseRepeatedSegments(String content, int minSegmentLength, int maxSegmentLength) {
+        String current = content;
+        int totalRemovedSegments = 0;
+
+        while (true) {
+            CollapsePass pass = collapseRepeatedSegmentsOnce(current, minSegmentLength, maxSegmentLength);
+            current = pass.content();
+            totalRemovedSegments += pass.removedSegments();
+            if (pass.removedSegments() == 0) {
+                break;
+            }
+        }
+
+        if (totalRemovedSegments > 0) {
+            log.info("鏀硅繘鍘婚噸绉婚櫎 {} 涓噸澶嶇墖娈?", totalRemovedSegments);
+        }
+
+        return current;
+    }
+
+    private CollapsePass collapseRepeatedSegmentsOnce(String content, int minSegmentLength, int maxSegmentLength) {
+        StringBuilder result = new StringBuilder();
+        int cursor = 0;
+        int removedSegments = 0;
+
+        while (cursor < content.length()) {
+            RepeatedSegment repeatedSegment = findRepeatedSegment(content, cursor, minSegmentLength, maxSegmentLength);
+            if (repeatedSegment == null) {
+                result.append(content.charAt(cursor));
+                cursor++;
+                continue;
+            }
+
+            result.append(repeatedSegment.segment());
+            cursor += repeatedSegment.segment().length() * repeatedSegment.repeatCount();
+            removedSegments += repeatedSegment.repeatCount() - 1;
+        }
+
+        return new CollapsePass(result.toString(), removedSegments);
+    }
+
+    private RepeatedSegment findRepeatedSegment(String content, int start, int minSegmentLength, int maxSegmentLength) {
+        int remaining = content.length() - start;
+        int candidateMaxLength = Math.min(maxSegmentLength, remaining / 2);
+
+        for (int length = candidateMaxLength; length >= minSegmentLength; length--) {
+            String candidate = content.substring(start, start + length);
+            int repeatCount = 1;
+            int nextStart = start + length;
+
+            while (nextStart + length <= content.length() && content.startsWith(candidate, nextStart)) {
+                repeatCount++;
+                nextStart += length;
+            }
+
+            if (repeatCount >= 2) {
+                return new RepeatedSegment(candidate, repeatCount);
+            }
+        }
+
+        return null;
+    }
+
+    private record RepeatedSegment(String segment, int repeatCount) {}
+
+    private record CollapsePass(String content, int removedSegments) {}
+
     public static class ValidationResult {
         private boolean valid;
         private List<String> errors = new java.util.ArrayList<>();

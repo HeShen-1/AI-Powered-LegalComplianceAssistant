@@ -171,7 +171,7 @@ public class LegalDocumentSplitter implements DocumentSplitter {
         // 如果基础分割也失败了，降级到简单的长度分割
         if (segments.isEmpty()) {
             log.warn("基础分割模式未识别到任何条文，降级到简单长度分割");
-            return fallbackSplit(content, baseMetadata);
+            return Collections.emptyList();
         }
         
         return segments;

@@ -227,7 +227,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, type TagProps } from 'element-plus'
 import {
   Document,
   ChatDotRound,
@@ -245,11 +245,12 @@ import { getMyReviewsApi } from '@/api/contractService'
 // 类型定义
 interface ReviewRecord {
   id: number
-  filename: string
-  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+  originalFilename: string
+  reviewStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
   riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH'
   createdAt: string
   completedAt?: string
+  totalRisks?: number
 }
 
 interface DashboardStats {
@@ -307,13 +308,13 @@ const formatTime = (dateStr: string) => {
   }
 }
 
-const getStatusType = (status: string) => {
+const getStatusType = (status: string): TagProps['type'] => {
   const typeMap = {
     PENDING: 'info',
     PROCESSING: 'warning',
     COMPLETED: 'success',
     FAILED: 'danger'
-  }
+  } as const
   return typeMap[status as keyof typeof typeMap] || 'info'
 }
 
@@ -327,12 +328,12 @@ const getStatusText = (status: string) => {
   return textMap[status as keyof typeof textMap] || status
 }
 
-const getRiskType = (level: string) => {
+const getRiskType = (level: string): TagProps['type'] => {
   const typeMap = {
     LOW: 'success',
     MEDIUM: 'warning',
     HIGH: 'danger'
-  }
+  } as const
   return typeMap[level as keyof typeof typeMap] || 'info'
 }
 

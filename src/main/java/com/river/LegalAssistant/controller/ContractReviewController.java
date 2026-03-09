@@ -163,115 +163,136 @@ public class ContractReviewController {
         @ApiResponse(responseCode = "500", description = "启动分析任务失败")
     })
     public SseEmitter analyzeContractAsync(
-            @Parameter(description = "审查任务的唯一ID", required = true, example = "1")
+            @Parameter(description = "???????ID", required = true, example = "1")
             @PathVariable Long reviewId,
             HttpServletRequest httpRequest,
             HttpServletResponse httpResponse) {
-        
-        log.info("开始异步合同分析，审查ID: {}", reviewId);
-        
-        // 设置SSE响应头，确保中文正确显示
+        return startAsyncAnalysis(reviewId, httpRequest, httpResponse, true);
+    }
+
+    @PostMapping(value = "/{reviewId}/analyze-async-auth", produces = "text/event-stream;charset=UTF-8")
+    @Operation(summary = "Async contract review (auth header)", description = "Uses an Authorization Bearer token for the primary demo streaming path.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Stream started"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "500", description = "Failed to start analysis")
+    })
+    public SseEmitter analyzeContractAsyncAuth(
+            @Parameter(description = "Review task ID", required = true, example = "1")
+            @PathVariable Long reviewId,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse) {
+        return startAsyncAnalysis(reviewId, httpRequest, httpResponse, false);
+    }
+
+    private SseEmitter startAsyncAnalysis(Long reviewId,
+                                          HttpServletRequest httpRequest,
+                                          HttpServletResponse httpResponse,
+                                          boolean allowQueryToken) {
+        log.info("Starting async contract analysis: reviewId={}, allowQueryToken={}", reviewId, allowQueryToken);
+
+        configureSseResponse(httpResponse);
+        SseEmitter emitter = new SseEmitter(20 * 60 * 1000L);
+        String jwtToken = extractJwtToken(httpRequest, allowQueryToken);
+
+        if (jwtToken == null || jwtToken.trim().isEmpty()) {
+            sendAuthError(emitter, allowQueryToken
+                    ? "Missing valid authentication token"
+                    : "Missing valid Authorization Bearer token");
+            return emitter;
+        }
+
+        try {
+            String username = validateJwtToken(jwtToken);
+            log.info("JWT validated for user {}, reviewId={}", username, reviewId);
+        } catch (Exception e) {
+            log.error("JWT validation failed: {}", e.getMessage());
+            sendAuthError(emitter, "Authentication failed: " + e.getMessage());
+            return emitter;
+        }
+
+        bindEmitterLifecycle(reviewId, emitter);
+
+        try {
+            log.info("SSE connection established: reviewId={}", reviewId);
+            contractReviewService.analyzeContractAsync(reviewId, emitter);
+        } catch (Exception e) {
+            log.error("Failed to start async analysis", e);
+            emitter.completeWithError(e);
+        }
+
+        return emitter;
+    }
+
+    private void configureSseResponse(HttpServletResponse httpResponse) {
         httpResponse.setContentType("text/event-stream;charset=UTF-8");
         httpResponse.setCharacterEncoding("UTF-8");
         httpResponse.setHeader("Cache-Control", "no-cache");
         httpResponse.setHeader("Connection", "keep-alive");
-        httpResponse.setHeader("X-Accel-Buffering", "no"); // 禁用Nginx缓冲
+        httpResponse.setHeader("X-Accel-Buffering", "no");
         httpResponse.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
         httpResponse.setHeader("Access-Control-Allow-Credentials", "true");
         httpResponse.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
         httpResponse.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        
-        // 创建SSE发射器，设置超时时间为20分钟（考虑到AI分析可能需要较长时间）
-        SseEmitter emitter = new SseEmitter(20 * 60 * 1000L);
-        
-        // 手动验证JWT Token - 支持Header和查询参数两种方式
-        String jwtToken = null;
+    }
+
+    private String extractJwtToken(HttpServletRequest httpRequest, boolean allowQueryToken) {
         String authHeader = httpRequest.getHeader("Authorization");
-        
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            jwtToken = authHeader.substring(7);
-        } else {
-            // 尝试从查询参数获取token（用于EventSource）
-            jwtToken = httpRequest.getParameter("token");
+            return authHeader.substring(7);
         }
-        
-        if (jwtToken == null || jwtToken.trim().isEmpty()) {
-            try {
-                String errorJsonData = serializeToJsonWithUtf8(Map.of("error", "未提供有效的认证Token"));
-                emitter.send(SseEmitter.event()
-                    .name("error")
-                    .data(errorJsonData));
-                emitter.complete();
-            } catch (Exception e) {
-                log.error("发送认证错误事件失败", e);
-            }
-            return emitter;
+
+        if (allowQueryToken) {
+            return httpRequest.getParameter("token");
         }
+
+        return null;
+    }
+
+    private String validateJwtToken(String jwtToken) {
+        String username = jwtTokenUtil.getUsernameFromToken(jwtToken);
+        if (username == null) {
+            throw new RuntimeException("Invalid token");
+        }
+        if (jwtTokenUtil.isTokenExpired(jwtToken)) {
+            throw new RuntimeException("Token expired");
+        }
+        return username;
+    }
+
+    private void sendAuthError(SseEmitter emitter, String errorMessage) {
         try {
-            // 验证JWT Token
-            String username = jwtTokenUtil.getUsernameFromToken(jwtToken);
-            if (username == null) {
-                throw new RuntimeException("无效的Token");
-            }
-            
-            // 验证Token签名和有效期
-            if (jwtTokenUtil.isTokenExpired(jwtToken)) {
-                throw new RuntimeException("Token已过期");
-            }
-            
-            log.info("用户 {} 通过JWT验证，开始处理合同分析，reviewId: {}", username, reviewId);
-        } catch (Exception e) {
-            log.error("JWT验证失败: {}", e.getMessage());
-            try {
-                String errorJsonData = serializeToJsonWithUtf8(Map.of("error", "认证失败: " + e.getMessage()));
-                emitter.send(SseEmitter.event()
+            String errorJsonData = serializeToJsonWithUtf8(Map.of("error", errorMessage));
+            emitter.send(SseEmitter.event()
                     .name("error")
                     .data(errorJsonData));
-                emitter.complete();
-            } catch (Exception sendError) {
-                log.error("发送认证错误事件失败", sendError);
-            }
-            return emitter;
+            emitter.complete();
+        } catch (Exception e) {
+            log.error("Failed to send auth error event", e);
         }
-        
-        // 设置完成和超时回调
-        emitter.onCompletion(() -> log.info("SSE连接完成: reviewId={}", reviewId));
+    }
+
+    private void bindEmitterLifecycle(Long reviewId, SseEmitter emitter) {
+        emitter.onCompletion(() -> log.info("SSE connection completed: reviewId={}", reviewId));
         emitter.onTimeout(() -> {
-            log.warn("SSE连接超时，标记任务应停止，但分析将继续在后台进行: reviewId={}", reviewId);
+            log.warn("SSE connection timed out, analysis continues in background: reviewId={}", reviewId);
             try {
-                // 检查emitter状态，避免在已完成的emitter上发送消息
                 emitter.send(SseEmitter.event()
-                    .name("timeout")
-                    .data(Map.of("message", "连接超时，请刷新页面查看结果", "reviewId", reviewId)));
+                        .name("timeout")
+                        .data(Map.of("message", "Connection timed out, refresh to view the result", "reviewId", reviewId)));
                 emitter.complete();
             } catch (IllegalStateException e) {
-                log.warn("SSE连接已关闭，无法发送超时消息: reviewId={}", reviewId);
+                log.warn("SSE connection already closed: reviewId={}", reviewId);
             } catch (Exception e) {
-                log.error("发送超时消息失败", e);
+                log.error("Failed to start async analysis", e);
             }
         });
         emitter.onError((ex) -> {
-            log.error("SSE连接错误: reviewId={}", reviewId, ex);
+            log.error("SSE connection error: reviewId={}", reviewId, ex);
             emitter.completeWithError(ex);
         });
-        
-        try {
-            // 记录连接成功（仅控制台日志，不发送到前端）
-            log.info("SSE连接已建立: reviewId={}", reviewId);
-            
-            // 异步执行分析
-            contractReviewService.analyzeContractAsync(reviewId, emitter);
-        } catch (Exception e) {
-            log.error("启动异步分析失败", e);
-            emitter.completeWithError(e);
-        }
-        
-        return emitter;
     }
 
-    /**
-     * 开始合同审查（同步版本，保持向后兼容）
-     */
     @PostMapping("/{reviewId}/analyze")
     @Operation(summary = "同步合同审查", description = "对已上传的合同文件进行AI审查（同步阻塞）。【注意】此接口为保持向后兼容性而保留，对于较大文件可能导致长时间等待，推荐使用异步接口 `/analyze-async`。")
     @ApiResponses({

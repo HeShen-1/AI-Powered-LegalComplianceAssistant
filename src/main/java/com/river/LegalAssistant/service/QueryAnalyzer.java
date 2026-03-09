@@ -26,7 +26,7 @@ public class QueryAnalyzer {
     
     // 法律名称模式（支持带书名号和不带书名号）
     private static final Pattern LAW_NAME_PATTERN = Pattern.compile(
-        "《?([^《》]+?(?:法|条例|规定|办法|准则|细则))》?"
+        "\\u300a?([^\\u300a\\u300b\\s]+?(?:\\u6cd5\\u5178|\\u6cd5|\\u6761\\u4f8b|\\u89c4\\u5b9a|\\u529e\\u6cd5|\\u51c6\\u5219|\\u7ec6\\u5219))\\u300b?"
     );
     
     // 条款编号模式（支持多种格式）

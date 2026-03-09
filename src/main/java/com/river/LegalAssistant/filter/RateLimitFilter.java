@@ -81,6 +81,14 @@ public class RateLimitFilter implements Filter {
         
         chain.doFilter(request, response);
     }
+
+    private boolean isHealthEndpoint(String uri) {
+        if (uri == null || uri.isBlank()) {
+            return false;
+        }
+        return uri.startsWith("/actuator/health") ||
+               uri.matches("^(/api(?:/v\\d+)?)?/health(?:/.*)?$");
+    }
     
     /**
      * 获取客户端IP地址
@@ -121,7 +129,7 @@ public class RateLimitFilter implements Filter {
      * 判断是否应该跳过速率限制
      */
     private boolean shouldSkipRateLimit(String uri) {
-        return uri.startsWith("/actuator/health") ||
+        return isHealthEndpoint(uri) ||
                uri.startsWith("/actuator/") ||
                uri.startsWith("/static/") ||
                uri.startsWith("/css/") ||

@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Scope;
+import org.springframework.lang.Nullable;
 
 /**
  * AI 模型配置
@@ -51,9 +52,10 @@ public class AiConfig {
      * 根据官方文档，DeepSeek模型支持工具调用和推理能力
      */
     @Bean("advancedChatClient")
-    public ChatClient advancedChatClient(@Qualifier("deepSeekChatModel") ChatModel deepSeekChatModel) {
-        log.info("初始化高级聊天客户端，使用DeepSeek Chat模型");
-        return ChatClient.builder(deepSeekChatModel)
+    public ChatClient advancedChatClient(@Qualifier("ollamaChatModel") ChatModel ollamaChatModel,
+                                         @Nullable @Qualifier("deepSeekChatModel") ChatModel deepSeekChatModel) {
+        ChatModel selectedModel = resolvePreferredChatModel(deepSeekChatModel, ollamaChatModel, "advanced");
+        return ChatClient.builder(selectedModel)
                 .defaultSystem(promptTemplateService.getAdvancedLegalSystemPrompt())
                 .build();
     }
@@ -63,19 +65,12 @@ public class AiConfig {
      */
     @Bean
     @Primary
-    public ChatClient chatClient(@Qualifier("deepSeekChatModel") ChatModel deepSeekChatModel, 
-                                @Qualifier("ollamaChatModel") ChatModel ollamaChatModel) {
-        try {
-            log.info("初始化主要聊天客户端，优先使用DeepSeek模型");
-            return ChatClient.builder(deepSeekChatModel)
-                    .defaultSystem(promptTemplateService.getBasicLegalSystemPrompt())
-                    .build();
-        } catch (Exception e) {
-            log.warn("DeepSeek模型不可用，降级使用Ollama模型: {}", e.getMessage());
-            return ChatClient.builder(ollamaChatModel)
-                    .defaultSystem(promptTemplateService.getBasicLegalSystemPrompt())
-                    .build();
-        }
+    public ChatClient chatClient(@Nullable @Qualifier("deepSeekChatModel") ChatModel deepSeekChatModel,
+                                 @Qualifier("ollamaChatModel") ChatModel ollamaChatModel) {
+        ChatModel selectedModel = resolvePreferredChatModel(deepSeekChatModel, ollamaChatModel, "default");
+        return ChatClient.builder(selectedModel)
+                .defaultSystem(promptTemplateService.getBasicLegalSystemPrompt())
+                .build();
     }
 
     /**
@@ -100,9 +95,23 @@ public class AiConfig {
     @Bean
     @Scope("prototype")
     public ChatClient.Builder chatClientBuilder(
-            @Qualifier("deepSeekChatModel") ChatModel chatModel) {
+            @Qualifier("ollamaChatModel") ChatModel ollamaChatModel,
+            @Nullable @Qualifier("deepSeekChatModel") ChatModel deepSeekChatModel) {
+        ChatModel selectedModel = resolvePreferredChatModel(deepSeekChatModel, ollamaChatModel, "memory");
         log.debug("创建 ChatClient.Builder (prototype)");
-        return ChatClient.builder(chatModel);
+        return ChatClient.builder(selectedModel);
+    }
+
+    ChatModel resolvePreferredChatModel(@Nullable ChatModel deepSeekChatModel,
+                                        ChatModel ollamaChatModel,
+                                        String usage) {
+        if (deepSeekChatModel != null) {
+            log.info("初始化{}聊天客户端，优先使用DeepSeek模型", usage);
+            return deepSeekChatModel;
+        }
+
+        log.warn("DeepSeek模型不可用，{}聊天客户端降级使用Ollama模型", usage);
+        return ollamaChatModel;
     }
 
     // 注意：在Spring AI 1.0.2中，QuestionAnswerAdvisor和QueryTransformer可能不可用

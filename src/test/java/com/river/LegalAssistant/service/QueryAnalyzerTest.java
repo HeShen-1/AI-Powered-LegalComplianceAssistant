@@ -4,6 +4,7 @@ import com.river.LegalAssistant.dto.QueryIntent;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -12,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * 验证查询意图识别的准确性
  */
 @SpringBootTest
+@ActiveProfiles("test")
 class QueryAnalyzerTest {
     
     @Autowired

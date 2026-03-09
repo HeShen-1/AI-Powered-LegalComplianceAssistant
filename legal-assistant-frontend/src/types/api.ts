@@ -1,3 +1,7 @@
+export type ReviewStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
+export type ChatModelType = 'BASIC' | 'ADVANCED' | 'ADVANCED_RAG' | 'UNIFIED'
+
 // 用户相关类型
 export interface User {
   id: number
@@ -42,61 +46,79 @@ export interface ApiResponse<T = any> {
 // 合同审查相关类型
 export interface ContractReview {
   id: number
-  userId: number
-  originalFilename: string  // 修复：使用正确的字段名
-  filePath: string
-  reviewStatus: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'  // 修复：使用正确的字段名
-  riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH'
+  originalFilename: string
+  reviewStatus: ReviewStatus
+  riskLevel?: RiskLevel
+  totalRisks?: number
   createdAt: string
   completedAt?: string
+  filePath?: string
+  fileSize?: number
+  fileHash?: string
+  summary?: any
+  detailedAnalysis?: any
+  riskClauses?: any[]
   result?: any
 }
 
-export interface ContractUploadResponse {
-  success: boolean
-  message: string
+export interface ContractUploadData {
   reviewId: number
-  status: string
+  status: ReviewStatus
   supportedAnalysis: boolean
+  originalFilename?: string
+  fileHash?: string
+  fileSize?: number
 }
 
 // 统一聊天接口类型
 export interface UnifiedChatRequest {
-  message: string  // 与后端字段名保持一致
-  modelType: 'BASIC' | 'ADVANCED' | 'ADVANCED_RAG'  // 与后端字段名保持一致
-  conversationId?: string  // 与后端字段名保持一致
+  message: string
+  modelType: ChatModelType
+  conversationId?: string
   useKnowledgeBase?: boolean
   modelName?: string
   stream?: boolean
 }
 
-export interface UnifiedChatResponse {
-  question: string              // 用户的原始问题
-  answer: string                // AI生成的回答
-  conversationId: string        // 会话ID
-  modelType: string             // 使用的模型类型
-  modelName?: string            // 使用的具体模型名称
-  usedKnowledgeBase?: boolean   // 是否使用了知识库
-  hasKnowledgeMatch?: boolean   // 是否找到了相关知识
-  sourceCount?: number          // 知识来源数量
-  sources?: string[]            // 知识来源列表
-  memoryEnabled?: boolean       // 是否启用了对话记忆
-  responseType?: string         // 响应类型
-  timestamp: string             // 响应时间戳
-  duration?: number             // 处理耗时（毫秒）
-  metadata?: Record<string, any> // 额外的元数据
+export interface UnifiedChatMetadata {
+  actualModel?: string
+  routeReason?: string
+  fallbackUsed?: boolean
+  sourceCount?: number
+  latencyMs?: number
+  requestedModel?: string
+  modelType?: string
+  responseType?: string
+  usedKnowledgeBase?: boolean
+  [key: string]: any
 }
 
-// AI聊天相关类型
+export interface UnifiedChatResponse {
+  question: string
+  answer: string
+  conversationId: string
+  modelType: string
+  modelName?: string
+  usedKnowledgeBase?: boolean
+  hasKnowledgeMatch?: boolean
+  sourceCount?: number
+  sources?: string[]
+  memoryEnabled?: boolean
+  responseType?: string
+  timestamp: string
+  duration?: number
+  metadata?: UnifiedChatMetadata
+}
+
 export interface ChatMessage {
   id: string
   content: string
   role: 'user' | 'ai'
   timestamp: string
   isStreaming?: boolean
+  metadata?: UnifiedChatMetadata
 }
 
-// 聊天历史相关类型
 export interface ChatSessionDto {
   id: string
   title: string
@@ -149,6 +171,14 @@ export interface KnowledgeDocument {
   chunksCount: number
 }
 
+export interface KnowledgeDocumentList {
+  content: KnowledgeDocument[]
+  totalElements: number
+  totalPages: number
+  currentPage: number
+  pageSize: number
+}
+
 export interface DocumentUploadResponse {
   success: boolean
   message: string
@@ -163,11 +193,13 @@ export interface PaginationParams {
 }
 
 export interface PaginatedResponse<T> {
-  success: boolean
-  data: T[]
+  content: T[]
   totalElements: number
   totalPages: number
   currentPage: number
+  pageSize: number
+  first?: boolean
+  last?: boolean
 }
 
 // SSE事件类型

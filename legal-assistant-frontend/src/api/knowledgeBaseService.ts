@@ -1,8 +1,7 @@
 import apiClient from './index'
 import type { 
-  KnowledgeDocument, 
+  KnowledgeDocumentList,
   DocumentUploadResponse, 
-  PaginatedResponse, 
   PaginationParams,
   ApiResponse 
 } from '@/types/api'
@@ -33,7 +32,7 @@ export const batchUploadDocumentsApi = (files: File[], category?: string) => {
 
 // 获取文档列表
 export const getDocumentsApi = (params?: PaginationParams & { category?: string }) => {
-  return apiClient.get<PaginatedResponse<KnowledgeDocument>>('/knowledge-base/documents', { params })
+  return apiClient.get<ApiResponse<KnowledgeDocumentList>>('/knowledge-base/documents', { params })
 }
 
 // 删除文档
